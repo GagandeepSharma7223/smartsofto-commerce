@@ -111,7 +111,7 @@ export async function priceCart(items: CartLine[]) {
   return res.json()
 }
 
-export async function checkout(payload: { email?: string; name?: string; address?: string; items: CartLine[] }) {
+export async function checkout(payload: { email?: string | null; name?: string; address?: string; items: CartLine[] }) {
   const url = resolveStoreUrl(CHECKOUT_ENDPOINT)
   const request = (() => {
     const items = (payload && Array.isArray(payload.items) ? payload.items : []).map((i: any) => ({
@@ -410,7 +410,7 @@ export type AdminInvoice = {
   paymentMethod: number
   referenceNumber?: string
   status: number
-  notes?: string
+  notes?: string | null
   createdAt?: string
   updatedAt?: string
   orderTotalAmount?: number
@@ -441,7 +441,7 @@ export async function apiAdminCreateInvoice(input: {
   amount: number
   paymentMethod: number
   referenceNumber?: string
-  notes?: string
+  notes?: string | null
 }): Promise<AdminInvoice> {
   const res = await fetch(resolveUrl('/api/admin/invoices'), {
     method: 'POST',
@@ -563,7 +563,7 @@ export type ClientProfile = {
   id?: string
   userId?: string
   name?: string
-  email?: string
+  email?: string | null
   phone?: string
   addressLine1?: string
   addressLine2?: string
@@ -712,18 +712,18 @@ export type AdminClient = {
   id: number
   name: string
   referenceName: string
-  companyName?: string
-  email?: string
-  phoneNumber?: string
+  companyName?: string | null
+  email?: string | null
+  phoneNumber?: string | null
   clientType: string
   totalPurchases?: number
   creditLimit?: number
-  taxIdentificationNumber?: string
-  preferredPaymentMethod?: string
+  taxIdentificationNumber?: string | null
+  preferredPaymentMethod?: string | null
   firstPurchaseDate?: string
   lastPurchaseDate?: string
   isActive: boolean
-  notes?: string
+  notes?: string | null
   tenantId?: number
   createdAt?: string
   updatedAt?: string
