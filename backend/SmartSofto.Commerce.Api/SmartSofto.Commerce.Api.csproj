@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SmartSofto.Commerce.Application\SmartSofto.Commerce.Application.csproj" />
+    <ProjectReference Include="..\SmartSofto.Commerce.Infrastructure\SmartSofto.Commerce.Infrastructure.csproj" />
+    <ProjectReference Include="..\SmartSofto.Commerce.Domain\SmartSofto.Commerce.Domain.csproj" />
+    <ProjectReference Include="..\SmartSofto.Commerce.Shared\SmartSofto.Commerce.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

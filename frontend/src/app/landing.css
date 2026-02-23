@@ -1,0 +1,79 @@
+/* Scoped landing styles */
+.landing {
+  --ink:#0a0a0a;
+  --muted:#666;
+  --milk:#fffdfa;
+  --cream:#fff7ef;
+  --brand:#d9138a; /* brand magenta */
+  --leaf:#1c7c54;
+  color: var(--ink);
+}
+
+.landing * { box-sizing: border-box; }
+
+/* Header */
+.landing .nav{position:sticky;top:0;z-index:60;background:#ffffffd6;backdrop-filter:blur(10px);border-bottom:1px solid #f0e9f2}
+.landing .nav__inner{max-width:1200px;margin:auto;padding:.8rem 5%;display:flex;align-items:center;justify-content:space-between}
+.landing .brand{display:flex;align-items:center;gap:.7rem}
+.landing .brand img{height:42px;width:auto;display:block}
+.landing .menu{display:flex;gap:1rem;font-weight:600}
+.landing .menu a{color:var(--ink);text-decoration:none;padding:.5rem .6rem;border-radius:10px}
+.landing .menu a:hover{background:#f6eef4}
+
+/* Sticky CTA */
+.landing .cta-float{position:fixed;right:18px;bottom:18px;z-index:80;background:var(--brand);color:#fff;border:none;border-radius:999px;padding:.9rem 1.2rem;font-weight:800;box-shadow:0 12px 30px rgba(217,19,138,.25);cursor:pointer}
+.landing .cta-float:active{transform:scale(.98)}
+
+/* HERO video */
+.landing .hero{position:relative;height:92vh;min-height:560px;overflow:hidden;background:#000}
+.landing .hero video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(1.05) contrast(1.05)}
+.landing .hero .tint{position:absolute;inset:0;background:radial-gradient(60% 60% at 20% 80%, #ffffffc8 0%, #ffffff7a 45%, #ffffff00 70%)}
+.landing .hero .badge{position:absolute;left:5%;top:8%;display:flex;align-items:center;gap:.5rem;background:#fff;border:1px solid #f1e7ef;border-radius:999px;padding:.35rem .7rem;font-weight:700;color:var(--brand);box-shadow:0 8px 24px rgba(0,0,0,.06)}
+.landing .hero .badge svg{height:18px;width:18px}
+.landing .hero .copy{position:absolute;left:5%;bottom:9%;max-width:620px;background:#ffffffc4;backdrop-filter:blur(10px);
+  padding:22px 26px;border-radius:22px;box-shadow:0 10px 30px rgba(0,0,0,.10)}
+.landing .hero h1{font-size:clamp(32px,5.2vw,56px);line-height:1.08;margin:.1em 0 .35em;font-weight:800}
+.landing .lead{margin:0 0 14px;color:#2b2b2b}
+.landing .btn{display:inline-block;padding:.9rem 1.4rem;border-radius:999px;font-weight:800;text-decoration:none}
+.landing .btn.primary{background:var(--brand);color:#fff}
+.landing .btn.ghost{border:2px solid var(--brand);color:var(--brand);margin-left:.5rem;background:#fff}
+.landing .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.landing .chip{border:1px solid #eee;border-radius:999px;padding:6px 10px;font-size:.82rem;background:#fff;color:#333}
+
+/* Milk wave divider */
+.landing .wave{position:relative;height:70px;background:transparent}
+.landing .wave svg{position:absolute;left:0;bottom:-1px;width:100%;height:70px;display:block}
+
+/* Sections */
+.landing section{padding:70px 5%}
+.landing h2{font-size:clamp(26px,3.2vw,38px);font-weight:800;text-align:center;margin:0 0 8px}
+.landing .sub{color:var(--muted);text-align:center;margin:0 0 28px}
+
+/* Value band */
+.landing .value{background:var(--cream);border-top:1px solid #ffe9f6;border-bottom:1px solid #ffe9f6}
+.landing .value__grid{max-width:1100px;margin:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.landing .value__card{background:#fff;border:1px solid #f5e6ef;border-radius:18px;padding:16px 14px;display:flex;gap:10px;align-items:center}
+.landing .dot{height:12px;width:12px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 6px #ffe3f3 inset}
+
+/* Products grid */
+.landing .grid{max-width:1200px;margin:auto;display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.landing .card{background:#fff;border:1px solid #f0e6ee;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(217,19,138,.06);transition:.25s}
+.landing .card:hover{transform:translateY(-4px);box-shadow:0 16px 36px rgba(217,19,138,.12)}
+.landing .card img{width:100%;height:230px;object-fit:cover}
+.landing .card__body{padding:16px}
+.landing .card__title{margin:0 0 6px;font-weight:800}
+.landing .card__text{margin:0;color:#4d4d4d}
+
+/* Story & Quality */
+.landing .story{background:var(--milk)}
+.landing .story__inner{max-width:900px;margin:auto;text-align:center}
+.landing .quality{max-width:1100px;margin:auto;background:#0a0a0a;color:#fff;border-radius:26px;padding:42px 26px;text-align:center}
+
+/* Footer */
+.landing footer{border-top:1px solid #f0e6ee;padding:28px 5%;text-align:center;color:#777}
+
+@media (max-width:640px){
+  .landing .menu{display:none}
+  .landing .hero .copy{left:4%;right:4%}
+}
+

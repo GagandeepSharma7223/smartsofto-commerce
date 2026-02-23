@@ -1,0 +1,29 @@
+﻿# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+
+# Node / Next.js
+node_modules/
+.next/
+dist/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env files
+.env
+.env.*
+
+# OS / misc
+.DS_Store
+Thumbs.db

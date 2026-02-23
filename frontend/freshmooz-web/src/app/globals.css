@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #6FAF3D;
+  --color-primary-dark: #5F9B34;
+  --color-secondary: #4DB6E2;
+  --color-cream: #F6F2E9;
+  --color-beige: #C9A46A;
+  --color-ink: #2B2B2B;
+  --color-border: #E7E1D6;
+  --radius-card: 18px;
+  --shadow-soft: 0 10px 26px rgba(43, 43, 43, 0.08);
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-body), "Nunito", system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), "Poppins", "Nunito", system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+html { scroll-behavior: smooth; }
+
+.container {
+  @apply max-w-7xl mx-auto px-4;
+}
+
+/* Cart badge bump animation */
+@keyframes cart-badge-bump {
+  0% { transform: scale(1); }
+  10% { transform: scale(1.15); }
+  30% { transform: scale(0.98); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+.cart-badge.bump { animation: cart-badge-bump 400ms ease; }
+
+/* Add-to-cart quick pulse */
+@keyframes add-flash {
+  0% { box-shadow: 0 0 0 0 rgba(111, 175, 61, 0); }
+  30% { box-shadow: 0 0 0 10px rgba(111, 175, 61, 0.18); }
+  100% { box-shadow: 0 0 0 0 rgba(111, 175, 61, 0); }
+}
+.btn-add-flash { animation: add-flash 600ms ease; }
+
+/* Cart row feedback */
+@keyframes row-remove {
+  0% { background-color: #f1f7ec; }
+  100% { background-color: #fffdf7; }
+}
+.row-remove { animation: row-remove 500ms ease; }
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 3px rgba(77, 182, 226, 0.25);
+}
