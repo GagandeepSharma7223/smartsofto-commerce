@@ -24,6 +24,7 @@ export default function SiteHeader() {
     : pathname?.startsWith('/invoices') ? 'invoices'
     : pathname?.startsWith('/analytics') ? 'analytics'
     : pathname?.startsWith('/inventory') ? 'inventory'
+    : pathname?.startsWith('/clients') ? 'clients'
     : undefined
 
   useEffect(() => {
