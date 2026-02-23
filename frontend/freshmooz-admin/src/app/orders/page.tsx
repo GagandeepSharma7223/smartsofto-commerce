@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { apiAdminOrders, apiAdminUpdateOrderStatus, type AdminOrder } from '@/lib/api'
@@ -9,6 +9,14 @@ import { useClientUser, getToken } from '@/lib/auth'
 const statusOptions = ['All', 'Pending', 'Delivered', 'Cancelled']
 
 export default function AdminOrdersPage() {
+  return (
+    <Suspense fallback={<Shell title="Orders"><div>Loading...</div></Shell>}>
+      <AdminOrdersPageContent />
+    </Suspense>
+  )
+}
+
+function AdminOrdersPageContent() {
   const user = useClientUser()
   const [rows, setRows] = useState<AdminOrder[] | null>(null)
   const [err, setErr] = useState<string | null>(null)
