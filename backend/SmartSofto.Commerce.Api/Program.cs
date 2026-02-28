@@ -83,7 +83,10 @@ builder.Services.AddCors(options =>
             "http://localhost:3000",
             "http://localhost:3001",
             "https://localhost:3000",
-            "https://localhost:3001"
+            "https://localhost:3001",
+            "https://admin.smartsofto.com",
+            "https://smartsofto.com",
+            "https://www.smartsofto.com"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()

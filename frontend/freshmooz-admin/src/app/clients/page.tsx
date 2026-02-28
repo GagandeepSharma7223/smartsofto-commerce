@@ -1,4 +1,5 @@
 "use client"
+import LoadingState from '@/components/LoadingState'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -110,8 +111,8 @@ export default function ClientsPage() {
     )
   }, [rows, query])
 
-  if (user === null) {
-    return <Shell title="Clients"><div>Loading...</div></Shell>
+  if (user === undefined) {
+    return <Shell title="Clients"><LoadingState /></Shell>
   }
   if (!user || user.role?.toLowerCase() !== 'admin') {
     return <Shell title="Clients"><div className="text-red-600">Not authorized.</div></Shell>
@@ -298,7 +299,7 @@ export default function ClientsPage() {
       {error && <div className="text-red-600 mb-3">{error}</div>}
 
       {rows === null ? (
-        <div>Loading...</div>
+        <LoadingState />
       ) : filtered.length === 0 ? (
         <div className="text-slate-600">No clients found.</div>
       ) : (
@@ -623,3 +624,4 @@ function Badge({ children, tone = 'gray' }: { children: React.ReactNode; tone?: 
       : 'bg-slate-100 text-slate-700'
   return <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${colors}`}>{children}</span>
 }
+

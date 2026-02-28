@@ -1,4 +1,5 @@
 "use client"
+import LoadingState from '@/components/LoadingState'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -32,8 +33,8 @@ export default function AdminAnalyticsPage() {
 
   const max = useMemo(() => Math.max(...monthly.map(p => p.total), 1), [monthly])
 
-  if (user === null) {
-    return <Shell title="Admin - Analytics"><div>Loading...</div></Shell>
+  if (user === undefined) {
+    return <Shell title="Admin - Analytics"><LoadingState /></Shell>
   }
   if (!user || user.role?.toLowerCase() !== 'admin') {
     return <Shell title="Admin - Analytics"><div className="text-red-600">Not authorized.</div></Shell>
@@ -121,3 +122,4 @@ function dateNDaysAgo(days: number) {
 function todayIso() {
   return new Date().toISOString()
 }
+

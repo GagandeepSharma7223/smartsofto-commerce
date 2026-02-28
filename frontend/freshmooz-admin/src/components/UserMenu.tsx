@@ -1,7 +1,7 @@
 "use client"
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import { getUser, clearAuth } from '@/lib/auth'
+import { getUser, logout } from '@/lib/auth'
 
 export default function UserMenu() {
   const [user, setUser] = useState<ReturnType<typeof getUser> | null>(null)
@@ -24,7 +24,6 @@ export default function UserMenu() {
     return () => document.removeEventListener('click', onDoc)
   }, [])
 
-  // Signed-out (or before mount): compact button with submenu
   if (!user) {
     return (
       <div className="relative" ref={ref}>
@@ -39,7 +38,7 @@ export default function UserMenu() {
     )
   }
 
-  const initials = (user.username || user.email || 'U').slice(0,1).toUpperCase()
+  const initials = (user.username || user.email || 'U').slice(0, 1).toUpperCase()
   return (
     <div className="relative" ref={ref}>
       <button
@@ -57,7 +56,7 @@ export default function UserMenu() {
           <div className="my-1 border-t" />
           <Link href="/orders" className="block px-2 py-1 hover:bg-[#F1F7EC] rounded">My Orders</Link>
           <div className="my-1 border-t" />
-          <button onClick={() => { clearAuth(); window.location.href = '/' }} className="w-full text-left px-2 py-1 hover:bg-[#e8f6fd] rounded text-[#2B7CBF]">Logout</button>
+          <button onClick={() => logout('/login')} className="w-full text-left px-2 py-1 hover:bg-[#e8f6fd] rounded text-[#2B7CBF]">Logout</button>
         </div>
       )}
     </div>

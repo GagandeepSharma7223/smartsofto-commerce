@@ -1,4 +1,5 @@
 "use client"
+import LoadingState from '@/components/LoadingState'
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -10,7 +11,7 @@ const statusOptions = ['All', 'Pending', 'Delivered', 'Cancelled']
 
 export default function AdminOrdersPage() {
   return (
-    <Suspense fallback={<Shell title="Orders"><div>Loading...</div></Shell>}>
+    <Suspense fallback={<Shell title="Orders"><LoadingState /></Shell>}>
       <AdminOrdersPageContent />
     </Suspense>
   )
@@ -57,8 +58,8 @@ function AdminOrdersPageContent() {
 
   const filtered = useMemo(() => rows || [], [rows])
 
-  if (user === null) {
-    return <Shell title="Admin - Orders"><div>Loading...</div></Shell>
+  if (user === undefined) {
+    return <Shell title="Admin - Orders"><LoadingState /></Shell>
   }
   if (!user || user.role?.toLowerCase() !== 'admin') {
     return <Shell title="Admin - Orders"><div className="text-red-600">Not authorized.</div></Shell>
@@ -87,7 +88,7 @@ function AdminOrdersPageContent() {
       </div>
       {err && <div className="text-red-600 mb-3">{err}</div>}
       {rows === null ? (
-        <div>Loading...</div>
+        <LoadingState />
       ) : filtered.length === 0 ? (
         <div className="text-slate-600">No orders found.</div>
       ) : (
@@ -188,3 +189,4 @@ function Badge({ children, tone = 'gray' }: { children: React.ReactNode; tone?: 
       : 'bg-slate-100 text-slate-700'
   return <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${colors}`}>{children}</span>
 }
+

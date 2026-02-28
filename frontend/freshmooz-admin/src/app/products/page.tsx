@@ -1,4 +1,5 @@
 "use client"
+import LoadingState from '@/components/LoadingState'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -61,7 +62,7 @@ export default function AdminProductsPage() {
     } catch {}
   }, [])
 
-  if (user === null) {
+  if (user === undefined) {
     return (
       <div className="landing">
         <main className="max-w-6xl mx-auto px-4 py-10">
@@ -272,4 +273,5 @@ export default function AdminProductsPage() {
     </div>
   )
 }
+
 

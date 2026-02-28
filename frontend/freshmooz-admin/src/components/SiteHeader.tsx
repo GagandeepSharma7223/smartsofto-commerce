@@ -9,6 +9,7 @@ export default function SiteHeader() {
   const [isSignedIn, setIsSignedIn] = useState(false)
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
+  const showNavigation = mounted && isSignedIn
   const active:
     | 'dashboard'
     | 'products'
@@ -40,21 +41,26 @@ export default function SiteHeader() {
       <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <img src="/media/logo.png" alt="Standard Paneer logo" className="h-14 sm:h-16 md:h-20 w-auto" />
-          </Link>
-        <nav className="hidden sm:flex items-center gap-6 font-semibold">
-          <Link className="hover:underline" href="/" aria-current={active === 'dashboard' ? 'page' : undefined}>Dashboard</Link>
-          <Link className="hover:underline" href="/products" aria-current={active === 'products' ? 'page' : undefined}>Products</Link>
-          <Link className="hover:underline" href="/orders" aria-current={active === 'orders' ? 'page' : undefined}>Orders</Link>
-          <Link className="hover:underline" href="/invoices" aria-current={active === 'invoices' ? 'page' : undefined}>Invoices</Link>
-          <Link className="hover:underline" href="/inventory" aria-current={active === 'inventory' ? 'page' : undefined}>Inventory</Link>
-          <Link className="hover:underline" href="/clients" aria-current={active === 'clients' ? 'page' : undefined}>Clients</Link>
-          <Link className="hover:underline" href="/analytics" aria-current={active === 'analytics' ? 'page' : undefined}>Analytics</Link>
-        </nav>
-        <div className="flex items-center gap-3">
-          <UserMenu />
-        </div>
+        </Link>
+        {showNavigation ? (
+          <>
+            <nav className="hidden sm:flex items-center gap-6 font-semibold">
+              <Link className="hover:underline" href="/" aria-current={active === 'dashboard' ? 'page' : undefined}>Dashboard</Link>
+              <Link className="hover:underline" href="/products" aria-current={active === 'products' ? 'page' : undefined}>Products</Link>
+              <Link className="hover:underline" href="/orders" aria-current={active === 'orders' ? 'page' : undefined}>Orders</Link>
+              <Link className="hover:underline" href="/invoices" aria-current={active === 'invoices' ? 'page' : undefined}>Invoices</Link>
+              <Link className="hover:underline" href="/inventory" aria-current={active === 'inventory' ? 'page' : undefined}>Inventory</Link>
+              <Link className="hover:underline" href="/clients" aria-current={active === 'clients' ? 'page' : undefined}>Clients</Link>
+              <Link className="hover:underline" href="/analytics" aria-current={active === 'analytics' ? 'page' : undefined}>Analytics</Link>
+            </nav>
+            <div className="flex items-center gap-3">
+              <UserMenu />
+            </div>
+          </>
+        ) : (
+          <div />
+        )}
       </div>
     </header>
   )
 }
-

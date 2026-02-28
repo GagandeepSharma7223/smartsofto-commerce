@@ -1,4 +1,5 @@
 "use client"
+import LoadingState from '@/components/LoadingState'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -120,8 +121,8 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
     })
   }, [rows])
 
-  if (user === null) {
-    return <Shell title="Payments"><div>Loading...</div></Shell>
+  if (user === undefined) {
+    return <Shell title="Payments"><LoadingState /></Shell>
   }
   if (!user || user.role?.toLowerCase() !== 'admin') {
     return <Shell title="Payments"><div className="text-red-600">Not authorized.</div></Shell>
@@ -203,7 +204,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
       {success && <div className="text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-md mb-3">{success}</div>}
       {err && <div className="text-red-600 mb-3">{err}</div>}
       {rows === null ? (
-        <div>Loading...</div>
+        <LoadingState />
       ) : groupedRows.length === 0 ? (
         <div className="text-slate-600">No invoices found.</div>
       ) : (
@@ -441,3 +442,4 @@ function renderPayment(method?: number) {
       return 'Cash'
   }
 }
+

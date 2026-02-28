@@ -1,4 +1,5 @@
 "use client"
+import LoadingState from '@/components/LoadingState'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiGetProduct, apiUpdateProduct } from '@/lib/api'
@@ -51,7 +52,7 @@ export default function AdminEditProductPage({ params }: { params: { id: string 
     load()
   }, [id])
 
-  if (user === null) {
+  if (user === undefined) {
     return (
       <div className="landing"><main className="max-w-3xl mx-auto px-4 py-10"><h1 className="text-2xl font-bold mb-4">Admin — Edit Product</h1><div>Loading…</div></main></div>
     )

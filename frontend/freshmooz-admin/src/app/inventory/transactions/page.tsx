@@ -1,4 +1,5 @@
 "use client"
+import LoadingState from '@/components/LoadingState'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -61,8 +62,8 @@ export default function AdminInventoryTransactionsPage() {
     return map
   }, [products])
 
-  if (user === null) {
-    return <Shell title="Admin - Inventory Transactions"><div>Loading...</div></Shell>
+  if (user === undefined) {
+    return <Shell title="Admin - Inventory Transactions"><LoadingState /></Shell>
   }
   if (!user || user.role?.toLowerCase() !== 'admin') {
     return <Shell title="Admin - Inventory Transactions"><div className="text-red-600">Not authorized.</div></Shell>
@@ -121,7 +122,7 @@ export default function AdminInventoryTransactionsPage() {
 
       {error && <div className="text-red-600 mb-3">{error}</div>}
       {items === null ? (
-        <div>Loading...</div>
+        <LoadingState />
       ) : items.length === 0 ? (
         <div className="text-slate-600">No transactions found.</div>
       ) : (
@@ -201,6 +202,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
     </div>
   )
 }
+
 
 
 

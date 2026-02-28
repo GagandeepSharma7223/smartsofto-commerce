@@ -1,4 +1,5 @@
 "use client"
+import LoadingState from '@/components/LoadingState'
 import { useState } from 'react'
 import { apiLogin } from '@/lib/api'
 import { saveAuth } from '@/lib/auth'
@@ -17,7 +18,7 @@ export default function LoginPage() {
     try {
       const res = await apiLogin(username, password)
       saveAuth(res.token || res.Token, res.user || res.User)
-      window.location.href = '/products'
+      window.location.replace('/')
     } catch (e: any) {
       setErr(e?.message || 'Login failed')
     } finally {
@@ -39,13 +40,16 @@ export default function LoginPage() {
             <label className="block text-sm mb-1">Password</label>
             <input type="password" className="w-full border rounded-md px-3 py-2" value={password} onChange={e=>setPassword(e.target.value)} required minLength={6} />
           </div>
-          <button type="submit" disabled={loading || !username || password.length < 6} className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white px-4 py-2 rounded-md w-full disabled:opacity-60">{loading ? 'Signing in…' : 'Sign in'}</button>
+          <button
+            type="submit"
+            disabled={loading || !username || password.length < 6}
+            className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white px-4 py-2 rounded-md w-full disabled:opacity-60"
+          >
+            {loading ? <LoadingState label="Signing in" compact /> : 'Sign in'}
+          </button>
         </form>
         <div className="mt-4 text-sm">
           New here? <Link href="/register" className="text-[#2B7CBF]">Create an account</Link>
-        </div>
-        <div className="mt-2 text-sm">
-          Or <Link href="/checkout" className="text-[#2B7CBF]">checkout as guest</Link>
         </div>
         <div className="mt-2 text-sm">
           Forgot password? <Link href="/reset-password" className="text-[#2B7CBF]">Reset it</Link>

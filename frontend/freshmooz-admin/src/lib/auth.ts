@@ -1,13 +1,19 @@
-﻿"use client"
+"use client"
 
 export type AuthUser = { id: string; username: string; email?: string; role?: string }
 
 const KEY = 'auth_token'
 const USER = 'auth_user'
+const REDIRECTING = 'auth_redirecting'
 
 function storage() {
   if (typeof window === 'undefined') return null
   return window.localStorage
+}
+
+function sessionStorageSafe() {
+  if (typeof window === 'undefined') return null
+  return window.sessionStorage
 }
 
 function notifyAuthChanged() {
@@ -15,11 +21,32 @@ function notifyAuthChanged() {
   window.dispatchEvent(new CustomEvent('auth:changed'))
 }
 
+function setAuthTransition(active: boolean) {
+  const store = sessionStorageSafe()
+  if (!store) return
+  if (active) {
+    store.setItem(REDIRECTING, '1')
+    return
+  }
+  store.removeItem(REDIRECTING)
+}
+
+export function isAuthTransitioning(): boolean {
+  const store = sessionStorageSafe()
+  if (!store) return false
+  return store.getItem(REDIRECTING) === '1'
+}
+
+export function clearAuthTransition() {
+  setAuthTransition(false)
+}
+
 export function saveAuth(token: string, user?: AuthUser) {
   const store = storage()
   if (!store) return
   store.setItem(KEY, token)
   if (user) store.setItem(USER, JSON.stringify(user))
+  clearAuthTransition()
   notifyAuthChanged()
 }
 
@@ -89,9 +116,13 @@ export function clearAuth() {
 }
 
 export function logout(redirectTo = '/login') {
+  if (typeof window === 'undefined') {
+    clearAuth()
+    return
+  }
+  setAuthTransition(true)
   clearAuth()
-  if (typeof window === 'undefined') return
-  window.location.href = redirectTo
+  window.location.replace(redirectTo)
 }
 
 export function getValidTokenOrLogout(): string | null {
@@ -109,7 +140,13 @@ export function useClientUser() {
   const React = require('react') as typeof import('react')
   const [u, setU] = React.useState<AuthUser | null | undefined>(undefined) // undefined = loading, null = not signed in
   React.useEffect(() => {
-    const update = () => setU(getUser())
+    const update = () => {
+      if (isAuthTransitioning()) {
+        setU(undefined)
+        return
+      }
+      setU(getUser())
+    }
     update()
     window.addEventListener('auth:changed', update)
     return () => window.removeEventListener('auth:changed', update)

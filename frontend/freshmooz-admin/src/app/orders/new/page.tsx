@@ -1,4 +1,5 @@
 "use client"
+import LoadingState from '@/components/LoadingState'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -154,8 +155,8 @@ export default function AdminNewOrderPage() {
     )
   }, [products, query])
 
-  if (user === null) {
-    return <Shell title="New Order"><div>Loading...</div></Shell>
+  if (user === undefined) {
+    return <Shell title="New Order"><LoadingState /></Shell>
   }
   if (!user || user.role?.toLowerCase() !== 'admin') {
     return <Shell title="New Order"><div className="text-red-600">Not authorized.</div></Shell>
@@ -620,3 +621,4 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
     </div>
   )
 }
+

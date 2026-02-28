@@ -1,4 +1,5 @@
 "use client"
+import LoadingState from '@/components/LoadingState'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiCreateProduct } from '@/lib/api'
@@ -39,7 +40,7 @@ export default function AdminNewProductPage() {
   const [ok, setOk] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  if (user === null) {
+  if (user === undefined) {
     return (
       <div className="landing">
         <main className="max-w-3xl mx-auto px-4 py-10">
@@ -157,4 +158,5 @@ export default function AdminNewProductPage() {
     </div>
   )
 }
+
 
