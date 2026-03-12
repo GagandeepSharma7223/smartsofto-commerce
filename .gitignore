@@ -27,3 +27,4 @@ pnpm-debug.log*
 # OS / misc
 .DS_Store
 Thumbs.db
+.tmp-nginx-api.conf

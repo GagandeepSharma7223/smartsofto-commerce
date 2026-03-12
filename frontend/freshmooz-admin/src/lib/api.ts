@@ -377,6 +377,35 @@ export type AdminOrder = {
   remainingAmount?: number
 }
 
+const ORDER_STATUS_LABELS: Record<number, string> = {
+  1: 'Pending',
+  2: 'Delivered',
+  3: 'Cancelled'
+}
+
+const INVOICE_STATUS_LABELS: Record<number, string> = {
+  1: 'Unpaid',
+  2: 'Paid',
+  3: 'PartiallyPaid'
+}
+
+const PAYMENT_METHOD_LABELS: Record<number, string> = {
+  1: 'Cash',
+  2: 'UPI',
+  3: 'Cheque'
+}
+
+function toLabel(value: unknown, labels: Record<number, string>, fallback = '-'): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    const n = Number(trimmed)
+    if (Number.isFinite(n) && labels[n]) return labels[n]
+    return trimmed || fallback
+  }
+  const n = Number(value)
+  return Number.isFinite(n) && labels[n] ? labels[n] : fallback
+}
+
 export async function apiAdminOrders(status?: string): Promise<AdminOrder[]> {
   const qs = status ? `?status=${encodeURIComponent(status)}` : ''
   const res = await fetch(resolveUrl(`/api/admin/orders${qs}`), {
@@ -384,19 +413,45 @@ export async function apiAdminOrders(status?: string): Promise<AdminOrder[]> {
     headers: authHeaders()
   })
   if (!res.ok) throw new Error('Failed to load orders')
-  return res.json()
+  const data = await res.json()
+  return (data || []).map((o: any) => ({
+    id: Number(o.id ?? o.Id),
+    orderNumber: o.orderNumber ?? o.OrderNumber ?? undefined,
+    clientId: o.clientId ?? o.ClientId ?? undefined,
+    clientName: o.clientName ?? o.ClientName ?? undefined,
+    productId: o.productId ?? o.ProductId ?? undefined,
+    productName: o.productName ?? o.ProductName ?? undefined,
+    quantity: Number(o.quantity ?? o.Quantity ?? 0),
+    unitPrice: Number(o.unitPrice ?? o.UnitPrice ?? 0),
+    totalAmount: Number(o.totalAmount ?? o.TotalAmount ?? 0),
+    status: toLabel(o.status ?? o.Status, ORDER_STATUS_LABELS, 'Pending'),
+    paymentMethod: toLabel(o.paymentMethod ?? o.PaymentMethod, PAYMENT_METHOD_LABELS, '-'),
+    invoiceStatus: toLabel(o.invoiceStatus ?? o.InvoiceStatus, INVOICE_STATUS_LABELS, 'Unpaid'),
+    amountPaid: Number(o.amountPaid ?? o.AmountPaid ?? 0),
+    createdAt: o.createdAt ?? o.CreatedAt ?? undefined,
+    updatedAt: o.updatedAt ?? o.UpdatedAt ?? undefined,
+    remainingAmount: Number(o.remainingAmount ?? o.RemainingAmount ?? 0)
+  }))
 }
 
 export async function apiAdminUpdateOrderStatus(id: number, status: string, token?: string) {
+  const statusValue =
+    status === 'Delivered' ? 2 :
+    status === 'Cancelled' ? 3 :
+    1
+
   const res = await fetch(resolveUrl(`/api/admin/orders/${id}/status`), {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       ...authHeaders(token)
     },
-    body: JSON.stringify(status)
+    body: JSON.stringify(statusValue)
   })
-  if (!res.ok) throw new Error('Failed to update order status')
+  if (!res.ok) {
+    const message = await res.text().catch(() => '')
+    throw new Error(message || 'Failed to update order status')
+  }
   return res.json()
 }
 
@@ -843,39 +898,4 @@ export async function apiGetOrder(id: string | number, token?: string): Promise<
     items
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

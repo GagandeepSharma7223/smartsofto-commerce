@@ -364,8 +364,9 @@ export default function ClientsPage() {
       )}
 
       {open && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl">
+        <div className="fixed inset-0 z-50 bg-black/40 overflow-y-auto">
+          <div className="min-h-full flex items-start justify-center px-4 py-6">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[calc(100vh-3rem)] overflow-y-auto">
             <div className="px-4 py-3 border-b flex items-center justify-between">
               <div className="font-semibold">{editing ? 'Edit client' : 'Add client'}</div>
               <button className="text-slate-500 hover:text-slate-800" onClick={() => setOpen(false)}>
@@ -578,6 +579,7 @@ export default function ClientsPage() {
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
