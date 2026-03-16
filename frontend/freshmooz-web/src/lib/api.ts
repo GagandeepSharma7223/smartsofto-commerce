@@ -1,6 +1,22 @@
 import { getValidTokenOrLogout, isJwtExpired, logout } from '@/lib/auth'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:5079'
+function resolveApiBase() {
+  const configured = process.env.NEXT_PUBLIC_API_BASE?.trim()
+  if (configured) return configured
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase()
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:5079'
+    }
+
+    return 'https://api.smartsofto.com'
+  }
+
+  return 'https://api.smartsofto.com'
+}
+
+const API_BASE = resolveApiBase()
 const STORE_API_BASE = process.env.NEXT_PUBLIC_STORE_API_BASE || ''
 const PRODUCTS_ENDPOINT = process.env.NEXT_PUBLIC_PRODUCTS_ENDPOINT || '/api/Products'
 const IMAGE_BASE = process.env.NEXT_PUBLIC_IMAGE_BASE || '/media'

@@ -1,10 +1,10 @@
 "use client"
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { apiForgotPassword, apiResetPassword } from '@/lib/api'
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const params = useSearchParams()
   const router = useRouter()
   const emailParam = params.get('email') || ''
@@ -147,5 +147,13 @@ export default function ResetPasswordPage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="landing"><main className="max-w-md mx-auto px-4 py-10">Loading...</main></div>}>
+      <ResetPasswordContent />
+    </Suspense>
   )
 }

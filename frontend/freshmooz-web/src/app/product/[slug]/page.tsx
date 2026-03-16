@@ -1,7 +1,7 @@
 import { findBySlug, getAllProducts } from '@/lib/products'
 import { fetchProduct } from '@/lib/api'
 import ImageWithFallback from '@/components/ImageWithFallback'
-import SiteHeader from '@/components/SiteHeader'
+import AddToCartButton from '@/components/AddToCartButton'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: p.name,
       description: p.description,
       url,
-      type: 'product'
+      type: 'website'
     }
   }
 }
@@ -74,19 +74,11 @@ export default async function ProductPage({ params }: Props) {
         <h1 className="text-3xl font-semibold">{p.name}</h1>
         <div className="text-slate-700">{p.description}</div>
         <div className="text-2xl font-bold">₹{p.price}</div>
-        <button
-          className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white px-4 py-2 rounded-full"
-          onClick={() => {
-            const cart = JSON.parse(localStorage.getItem('cart') || '[]') as { id: string; qty: number }[]
-            const existing = cart.find(i => i.id === p.id)
-            if (existing) existing.qty += 1
-            else cart.push({ id: p.id, qty: 1 })
-            localStorage.setItem('cart', JSON.stringify(cart))
-            window.dispatchEvent(new CustomEvent('cart:updated'))
-          }}
-        >
-          Add to Cart
-        </button>
+        <AddToCartButton
+          id={p.id}
+          label="Add to Cart"
+          className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white px-4 py-2"
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
