@@ -1,8 +1,8 @@
-﻿"use client"
+"use client"
 
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { clearAuth, getToken, isJwtExpired, logout } from '@/lib/auth'
+import { clearAuth, getJwtExpiryMs, getToken, logout } from '@/lib/auth'
 
 const PUBLIC_PATHS = new Set(['/login', '/register', '/reset-password', '/forgot-password'])
 const PROTECTED_PREFIXES = ['/orders', '/order', '/checkout', '/profile']
@@ -15,19 +15,39 @@ export default function AuthGate() {
   const pathname = usePathname()
 
   useEffect(() => {
-    if (PUBLIC_PATHS.has(pathname)) return
     const token = getToken()
-    if (!isProtectedPath(pathname)) {
-      if (token && isJwtExpired(token)) clearAuth()
-      return
-    }
+    const protectedPath = isProtectedPath(pathname)
+    const publicPath = PUBLIC_PATHS.has(pathname)
+
     if (!token) {
-      logout()
+      if (protectedPath) logout()
       return
     }
-    if (isJwtExpired(token)) {
-      logout()
+
+    const expiryMs = getJwtExpiryMs(token)
+    if (!expiryMs) {
+      if (protectedPath) {
+        logout()
+        return
+      }
+      clearAuth()
+      return
     }
+
+    const delay = Math.max(expiryMs - Date.now(), 0)
+    const timeoutId = window.setTimeout(() => {
+      if (PUBLIC_PATHS.has(window.location.pathname) || !isProtectedPath(window.location.pathname)) {
+        clearAuth()
+        return
+      }
+      logout()
+    }, delay)
+
+    if (publicPath || !protectedPath) {
+      return () => window.clearTimeout(timeoutId)
+    }
+
+    return () => window.clearTimeout(timeoutId)
   }, [pathname])
 
   return null

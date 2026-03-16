@@ -85,6 +85,7 @@ builder.Services.AddCors(options =>
             "https://localhost:3000",
             "https://localhost:3001",
             "https://admin.smartsofto.com",
+            "https://admin.freshmooz.com",
             "https://smartsofto.com",
             "https://www.smartsofto.com"
         )
@@ -155,4 +156,5 @@ static async Task SeedIdentityAsync(IServiceProvider services)
         }
     }
 }
+
 

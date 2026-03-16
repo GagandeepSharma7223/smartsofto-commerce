@@ -21,7 +21,9 @@ export function saveAuth(token: string, user?: AuthUser) {
 export function getToken(): string | null {
   const store = storage()
   if (!store) return null
-  return store.getItem(KEY)
+  const token = store.getItem(KEY)
+  if (!token || isJwtExpired(token)) return null
+  return token
 }
 
 function decodeBase64Url(input: string): string | null {
@@ -72,6 +74,7 @@ export function getJwtExpiryMs(token: string): number | null {
 export function getUser(): AuthUser | null {
   const store = storage()
   if (!store) return null
+  if (!getToken()) return null
   try { return JSON.parse(store.getItem(USER) || 'null') } catch { return null }
 }
 

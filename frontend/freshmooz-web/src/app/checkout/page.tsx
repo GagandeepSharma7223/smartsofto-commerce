@@ -251,36 +251,38 @@ export default function CheckoutPage() {
                   <input type="checkbox" checked={useSaved} onChange={e=>setUseSaved(e.target.checked)} />
                   Use a saved address
                 </label>
-                {useSaved && (
-                  <select
-                    className="w-full border border-[#E7E1D6] rounded-xl px-3 py-2 border-[#E7E1D6]"
-                    value={selectedAddrId}
-                    onChange={e=>{
-                      const id = e.target.value; setSelectedAddrId(id)
-                      const a = savedAddresses.find(x=>String(x.id)===String(id))
-                      if (a){
-                        setForm(f=>({
-                          ...f,
-                          shipping: {
-                            ...f.shipping,
-                            line1: a.addressLine1 || '',
-                            line2: a.addressLine2 || '',
-                            city: a.city || 'Gurugram',
-                            state: a.state || 'Haryana',
-                            pincode: a.postalCode || ''
-                          }
-                        }))
-                      }
-                    }}
-                  >
-                    <option value="">Select an address…</option>
-                    {savedAddresses.map(a=> (
-                      <option key={a.id} value={String(a.id)}>{a.label || `${a.addressLine1}, ${a.city}`}</option>
-                    ))}
-                  </select>
-                  {has('shipping.address') && (
-                    <div className="text-xs text-red-600 mt-1">{errors['shipping.address']}</div>
-                  )}
+                                {useSaved && (
+                  <>
+                    <select
+                      className="w-full border border-[#E7E1D6] rounded-xl px-3 py-2 border-[#E7E1D6]"
+                      value={selectedAddrId}
+                      onChange={e=>{
+                        const id = e.target.value; setSelectedAddrId(id)
+                        const a = savedAddresses.find(x=>String(x.id)===String(id))
+                        if (a){
+                          setForm(f=>({
+                            ...f,
+                            shipping: {
+                              ...f.shipping,
+                              line1: a.addressLine1 || '',
+                              line2: a.addressLine2 || '',
+                              city: a.city || 'Gurugram',
+                              state: a.state || 'Haryana',
+                              pincode: a.postalCode || ''
+                            }
+                          }))
+                        }
+                      }}
+                    >
+                      <option value="">Select an address…</option>
+                      {savedAddresses.map(a=> (
+                        <option key={a.id} value={String(a.id)}>{a.label || `${a.addressLine1}, ${a.city}`}</option>
+                      ))}
+                    </select>
+                    {has('shipping.address') && (
+                      <div className="text-xs text-red-600 mt-1">{errors['shipping.address']}</div>
+                    )}
+                  </>
                 )}
                 {useSaved && selectedAddress && (
                   <div className="flex items-center gap-3 text-sm">
@@ -294,9 +296,9 @@ export default function CheckoutPage() {
                 {!useSaved && (
                   <AddAddressInline onAdded={(addr)=>{ setSavedAddresses(list=>[...list, addr]); setUseSaved(true); setSelectedAddrId(String(addr.id)) }} />
                 )}
+
               </div>
             )}
-
             <div className="space-y-3">
               <div className="font-semibold">Shipping Address (Gurugram only)</div>
               <input disabled={useSaved}
@@ -492,3 +494,7 @@ function EditAddressInline({ address, onSaved, onCancel }: { address: ClientAddr
     </div>
   )
 }
+
+
+
+

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { clearAuth, clearAuthTransition, getToken, isJwtExpired, logout } from '@/lib/auth'
+import { clearAuth, clearAuthTransition, getJwtExpiryMs, getToken, logout } from '@/lib/auth'
 
 const PUBLIC_PATHS = new Set(['/login', '/register', '/reset-password', '/forgot-password'])
 
@@ -22,18 +22,30 @@ export default function AuthGate() {
       return
     }
 
-    if (!isJwtExpired(token)) {
-      clearAuthTransition()
+    clearAuthTransition()
+
+    const expiryMs = getJwtExpiryMs(token)
+    if (!expiryMs) {
+      if (isPublicPath) {
+        clearAuth()
+        clearAuthTransition()
+        return
+      }
+      logout()
       return
     }
 
-    if (isPublicPath) {
-      clearAuth()
-      clearAuthTransition()
-      return
-    }
+    const delay = Math.max(expiryMs - Date.now(), 0)
+    const timeoutId = window.setTimeout(() => {
+      if (PUBLIC_PATHS.has(window.location.pathname)) {
+        clearAuth()
+        clearAuthTransition()
+        return
+      }
+      logout()
+    }, delay)
 
-    logout()
+    return () => window.clearTimeout(timeoutId)
   }, [pathname])
 
   return null
