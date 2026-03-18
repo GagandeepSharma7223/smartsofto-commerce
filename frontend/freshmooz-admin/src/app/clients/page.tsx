@@ -245,19 +245,23 @@ export default function ClientsPage() {
   }
 
   const archiveClient = async (client: AdminClient) => {
-    setArchiveTarget(client)
-  }
+    const confirmed = await confirmAction({
+      title: 'Archive client',
+      text: `Archive ${client.name}? You can restore this client later.`,
+      confirmText: 'Archive',
+      cancelText: 'Cancel',
+    })
+    if (!confirmed) return
 
-  const confirmArchiveClient = async () => {
-    if (!archiveTarget) return
     setError(null)
     try {
-      await apiAdminDeleteClient(archiveTarget.id, token)
-      setRows(prev => prev ? prev.filter(r => r.id !== archiveTarget.id) : prev)
-      setToast('Client archived')
-      setArchiveTarget(null)
+      await apiAdminDeleteClient(client.id, token)
+      setRows(prev => prev ? prev.filter(r => r.id !== client.id) : prev)
+      await showSuccess('Operation completed successfully')
     } catch (e: any) {
-      setError(e?.message || 'Archive failed')
+      const message = e?.message || 'Something went wrong'
+      setError(message)
+      await showError(message, 'Archive failed')
     }
   }
 
