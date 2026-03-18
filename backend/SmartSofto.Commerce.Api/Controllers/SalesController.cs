@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SmartSofto.Commerce.Application.Exceptions;
 using SmartSofto.Commerce.Application.Interfaces;
 using SmartSofto.Commerce.Domain.Models;
 
@@ -103,11 +104,18 @@ namespace SmartSofto.Commerce.Api.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSale(int id)
         {
-            var result = await _saleService.DeleteSaleAsync(id);
-            if (!result)
-                return NotFound();
+            try
+            {
+                var result = await _saleService.DeleteSaleAsync(id);
+                if (!result)
+                    return NotFound();
 
-            return NoContent();
+                return NoContent();
+            }
+            catch (BusinessConflictException ex)
+            {
+                return Conflict(ex.Message);
+            }
         }
 
         // POST: api/Sales/5/payment

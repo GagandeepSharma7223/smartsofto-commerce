@@ -44,7 +44,8 @@ export default function AdminEditProductPage({ params }: { params: { id: string 
           quantity: String(p.quantity ?? p.Quantity ?? ''),
           type: p.type ?? p.Type ?? 3,
           unit: p.unit ?? p.Unit ?? 1,
-          imageFileName: p.imageFileName ?? p.ImageFileName ?? ''
+          imageFileName: p.imageFileName ?? p.ImageFileName ?? '',
+          isActive: Boolean(p.isActive ?? p.IsActive ?? true)
         })
       } catch (e: any) { setErr(e?.message || 'Failed to load product') }
       finally { setLoading(false) }
@@ -79,7 +80,8 @@ export default function AdminEditProductPage({ params }: { params: { id: string 
         quantity: parseInt(form.quantity || '0', 10),
         type: parseInt(form.type, 10),
         unit: parseInt(form.unit, 10),
-        imageFileName: form.imageFileName || null
+        imageFileName: form.imageFileName || null,
+        isActive: form.isActive
       }
       await apiUpdateProduct(id, payload, token || undefined)
       const msg = 'Product updated successfully'
@@ -157,6 +159,10 @@ export default function AdminEditProductPage({ params }: { params: { id: string 
                 </select>
               </div>
             </div>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.isActive} onChange={e=>setForm({...form, isActive:e.target.checked})} />
+              Active
+            </label>
             <div>
               <label className="block text-sm mb-1">Image File Name</label>
               <input className="w-full border rounded-md px-3 py-2" value={form.imageFileName} onChange={e=>setForm({...form, imageFileName:e.target.value})} />

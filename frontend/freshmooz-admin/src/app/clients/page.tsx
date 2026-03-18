@@ -17,6 +17,7 @@ import {
   type ClientAddress
 } from '@/lib/api'
 import { getToken, useClientUser } from '@/lib/auth'
+import { confirmAction, showError, showSuccess } from '@/lib/alert'
 
 const clientTypes = ['Regular', 'VIP', 'Wholesale']
 
@@ -74,7 +75,6 @@ export default function ClientsPage() {
   const token = getToken() || undefined
   const [rows, setRows] = useState<AdminClient[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [showInactive, setShowInactive] = useState(false)
   const [open, setOpen] = useState(false)
@@ -227,30 +227,35 @@ export default function ClientsPage() {
         await apiAdminUpdateClient(editing.id, updated, token)
         await persistAddresses(editing.id)
         setRows(prev => prev ? prev.map(r => r.id === editing.id ? updated : r) : prev)
-        setToast('Client updated')
+        await showSuccess('Operation completed successfully')
       } else {
         const created = await apiAdminCreateClient(payload as any, token)
         await persistAddresses(created.id)
         setRows(prev => prev ? [created, ...prev] : [created])
-        setToast('Client created')
+        await showSuccess('Operation completed successfully')
       }
-      setTimeout(() => setToast(null), 2500)
       setOpen(false)
     } catch (e: any) {
-      setError(e?.message || 'Save failed')
+      const message = e?.message || 'Something went wrong'
+      setError(message)
+      await showError(message, 'Save failed')
     } finally {
       setSaving(false)
     }
   }
 
   const archiveClient = async (client: AdminClient) => {
-    if (!confirm(`Archive ${client.name}?`)) return
+    setArchiveTarget(client)
+  }
+
+  const confirmArchiveClient = async () => {
+    if (!archiveTarget) return
     setError(null)
     try {
-      await apiAdminDeleteClient(client.id, token)
-      setRows(prev => prev ? prev.filter(r => r.id !== client.id) : prev)
+      await apiAdminDeleteClient(archiveTarget.id, token)
+      setRows(prev => prev ? prev.filter(r => r.id !== archiveTarget.id) : prev)
       setToast('Client archived')
-      setTimeout(() => setToast(null), 2500)
+      setArchiveTarget(null)
     } catch (e: any) {
       setError(e?.message || 'Archive failed')
     }
@@ -261,23 +266,24 @@ export default function ClientsPage() {
     try {
       await apiAdminRestoreClient(client.id, token)
       setRows(prev => prev ? prev.map(r => r.id === client.id ? { ...r, isActive: true } : r) : prev)
-      setToast('Client restored')
-      setTimeout(() => setToast(null), 2500)
+      await showSuccess('Operation completed successfully')
     } catch (e: any) {
-      setError(e?.message || 'Restore failed')
+      const message = e?.message || 'Something went wrong'
+      setError(message)
+      await showError(message, 'Restore failed')
     }
   }
 
   return (
     <Shell title="Clients">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show inactive
           </label>
           <input
-            className="border rounded-md px-3 py-2 w-64"
+            className="w-full rounded-md border px-3 py-2 sm:w-64"
             placeholder="Search by name, email, phone"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -291,11 +297,6 @@ export default function ClientsPage() {
         </button>
       </div>
 
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 rounded-xl bg-[#6FAF3D] text-white px-4 py-2 shadow-lg">
-          {toast}
-        </div>
-      )}
       {error && <div className="text-red-600 mb-3">{error}</div>}
 
       {rows === null ? (
@@ -374,7 +375,7 @@ export default function ClientsPage() {
               </button>
             </div>
             <form className="p-4 space-y-4" onSubmit={saveClient}>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm mb-1">Name</label>
                   <input
@@ -394,7 +395,7 @@ export default function ClientsPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm mb-1">Email</label>
                   <input
@@ -413,7 +414,7 @@ export default function ClientsPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm mb-1">Company</label>
                   <input
@@ -470,7 +471,7 @@ export default function ClientsPage() {
                           <div className="font-medium">Address {index + 1}</div>
                           <button type="button" className="text-sm text-red-600" onClick={() => removeAddressRow(index)}>Remove</button>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid gap-2 sm:grid-cols-2">
                           <input
                             className="border rounded-md px-3 py-2"
                             placeholder="Label"
@@ -508,7 +509,7 @@ export default function ClientsPage() {
                             setAddresses(prev => prev.map((a, i) => i === index ? { ...a, addressLine2: val } : a))
                           }}
                         />
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid gap-2 sm:grid-cols-3">
                           <input
                             className="border rounded-md px-3 py-2"
                             placeholder="City"
@@ -537,7 +538,7 @@ export default function ClientsPage() {
                             }}
                           />
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid gap-2 sm:grid-cols-2">
                           <input
                             className="border rounded-md px-3 py-2"
                             placeholder="Country"
@@ -562,7 +563,7 @@ export default function ClientsPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <button
                   type="button"
                   className="px-3 py-2 border rounded-md"
@@ -583,6 +584,7 @@ export default function ClientsPage() {
           </div>
         </div>
       )}
+
     </Shell>
   )
 }
@@ -607,7 +609,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
   return (
     <div className="landing">
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold">{title}</h1>
           <Link href="/" className="text-[#2B7CBF]">Back to dashboard</Link>
         </div>

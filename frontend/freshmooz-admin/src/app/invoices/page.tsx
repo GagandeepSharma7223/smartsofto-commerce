@@ -183,10 +183,10 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
   return (
     <Shell title="Payments">
       <p className="text-slate-600 mb-6">Record payments against orders and track balances.</p>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
           type="number"
-          className="border rounded-md px-3 py-2 w-40"
+          className="w-full rounded-md border px-3 py-2 sm:w-40"
           placeholder="e.g., 6"
           value={orderFilter}
           onChange={(e) => setOrderFilter(e.target.value)}
@@ -201,7 +201,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
           Clear filter
         </button>
       </div>
-      {success && <div className="text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-md mb-3">{success}</div>}
+      {success && <div className="mb-3 max-w-md rounded-md border border-green-200 bg-green-50 px-3 py-2 text-green-700">{success}</div>}
       {err && <div className="text-red-600 mb-3">{err}</div>}
       {rows === null ? (
         <LoadingState />
@@ -275,11 +275,11 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
 
       {showModal && selected && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-4 py-6"
           onMouseDown={closeModal}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5"
+            className="mx-auto w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-4">
@@ -288,26 +288,26 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
                 <p className="text-sm text-slate-500">Order {selected.orderNumber || selected.orderId}</p>
               </div>
               <button className="text-slate-500 hover:text-slate-700" onClick={closeModal}>
-                ?
+                <span aria-hidden="true">?</span>
               </button>
             </div>
             <div className="bg-slate-50 rounded-lg p-3 text-sm mb-4">
-              <div className="flex justify-between gap-2">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-slate-500">Client</span>
                 <span className="font-medium">{selected.clientName || '-'}</span>
               </div>
               {selected.totalAmount != null && (
-                <div className="flex justify-between gap-2">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-slate-500">Order total</span>
                   <span className="font-medium">{formatInr(selected.totalAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between gap-2">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-slate-500">Paid so far</span>
                 <span className="font-medium">{formatInr(selected.orderAmountPaid ?? selected.paidSoFar)}</span>
               </div>
               {selected.totalAmount != null && (
-                <div className="flex justify-between gap-2">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-slate-500">Balance</span>
                   <span className="font-medium">{formatInr(Math.max(selected.totalAmount - (selected.orderAmountPaid ?? selected.paidSoFar), 0))}</span>
                 </div>
@@ -364,7 +364,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 />
               </div>
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-end">
                 <button
                   type="button"
                   className="px-4 py-2 border rounded-md text-sm"

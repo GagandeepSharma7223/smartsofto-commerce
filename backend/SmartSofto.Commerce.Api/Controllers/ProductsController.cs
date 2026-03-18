@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using SmartSofto.Commerce.Domain.Models;
+using SmartSofto.Commerce.Application.Exceptions;
 using SmartSofto.Commerce.Application.Interfaces;
 
 namespace SmartSofto.Commerce.Api.Controllers
@@ -19,10 +20,11 @@ namespace SmartSofto.Commerce.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+        public async Task<ActionResult<IEnumerable<Product>>> GetProducts([FromQuery] bool includeInactive = false)
         {
             var tenantId = _tenantService.GetTenantIdOrDefault(1);
-            var products = await _productService.GetProductsAsync(tenantId);
+            var canSeeInactive = includeInactive && User.IsInRole("Admin");
+            var products = await _productService.GetProductsAsync(tenantId, canSeeInactive);
             return Ok(products);
         }
 
@@ -71,19 +73,58 @@ namespace SmartSofto.Commerce.Api.Controllers
         }
 
         [Authorize(Roles = "Admin")]
+        [HttpPut("{id}/archive")]
+        public async Task<IActionResult> ArchiveProduct(int id)
+        {
+            var tenantId = _tenantService.TenantId;
+            if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
+
+            var archived = await _productService.ArchiveProductAsync(tenantId.Value, id);
+            if (!archived)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPut("{id}/restore")]
+        public async Task<IActionResult> RestoreProduct(int id)
+        {
+            var tenantId = _tenantService.TenantId;
+            if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
+
+            var restored = await _productService.RestoreProductAsync(tenantId.Value, id);
+            if (!restored)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
+        }
+
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
             var tenantId = _tenantService.TenantId;
             if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
 
-            var deleted = await _productService.DeleteProductAsync(tenantId.Value, id);
-            if (!deleted)
+            try
             {
-                return NotFound();
-            }
+                var deleted = await _productService.DeleteProductAsync(tenantId.Value, id);
+                if (!deleted)
+                {
+                    return NotFound();
+                }
 
-            return NoContent();
+                return NoContent();
+            }
+            catch (BusinessConflictException ex)
+            {
+                return Conflict(ex.Message);
+            }
         }
     }
 }

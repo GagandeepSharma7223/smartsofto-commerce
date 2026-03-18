@@ -8,5 +8,6 @@ namespace SmartSofto.Commerce.Application.Interfaces
         Task<Invoice?> GetInvoiceAsync(int tenantId, int id, string? userId, bool isAdmin);
         Task<Invoice> CreateInvoiceAsync(int tenantId, Invoice invoice);
         Task<IReadOnlyList<Invoice>> GetInvoicesForOrderAsync(int tenantId, int orderId, string? userId, bool isAdmin);
+        Task<bool> DeleteInvoiceAsync(int tenantId, int id);
     }
 }

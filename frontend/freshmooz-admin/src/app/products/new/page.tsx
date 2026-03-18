@@ -34,7 +34,8 @@ export default function AdminNewProductPage() {
     quantity: '0',
     type: 3,
     unit: 1,
-    imageFileName: ''
+    imageFileName: '',
+    isActive: true
   })
   const [err, setErr] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
@@ -78,6 +79,7 @@ export default function AdminNewProductPage() {
         type: form.type,
         unit: form.unit,
         imageFileName: form.imageFileName.trim() || undefined,
+        isActive: form.isActive,
       }
       const res = await apiCreateProduct(payload, token || undefined)
       const msg = `Created product #${res.id ?? res.Id} (${res.name ?? res.Name})`
@@ -85,7 +87,7 @@ export default function AdminNewProductPage() {
       try { sessionStorage.setItem('flash', msg) } catch {}
       router.push('/products')
       // reset form just in case navigation is blocked
-      setForm({ name:'', description:'', sku:'', price:'', costPrice:'', quantity:'0', type:3, unit:1, imageFileName:'' })
+      setForm({ name:'', description:'', sku:'', price:'', costPrice:'', quantity:'0', type:3, unit:1, imageFileName:'', isActive:true })
     } catch (e: any) {
       setErr(e?.message || 'Failed to create product')
     } finally {
@@ -145,6 +147,10 @@ export default function AdminNewProductPage() {
               </select>
             </div>
           </div>
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form.isActive} onChange={e=>setForm({...form, isActive:e.target.checked})} />
+            Active
+          </label>
           <div>
             <label className="block text-sm mb-1">Image File Name (optional)</label>
             <input className="w-full border rounded-md px-3 py-2" placeholder="e.g., paneer.jpg" value={form.imageFileName} onChange={e=>setForm({...form, imageFileName:e.target.value})} />

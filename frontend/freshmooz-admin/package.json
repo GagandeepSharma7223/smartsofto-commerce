@@ -9,10 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@freshmooz/ui-core": "file:../ui-core",
     "next": "14.2.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "@freshmooz/ui-core": "file:../ui-core"
+    "sweetalert2": "^11.26.23"
   },
   "devDependencies": {
     "@types/node": "20.11.30",
@@ -26,4 +27,3 @@
     "typescript": "5.4.5"
   }
 }
-

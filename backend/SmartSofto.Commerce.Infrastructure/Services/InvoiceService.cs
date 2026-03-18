@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSofto.Commerce.Application.Exceptions;
 using SmartSofto.Commerce.Application.Interfaces;
 using SmartSofto.Commerce.Domain.Models;
 
@@ -175,6 +176,20 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             }
 
             return invoices;
+        }
+
+        public async Task<bool> DeleteInvoiceAsync(int tenantId, int id)
+        {
+            var invoice = await _context.Invoices
+                .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId);
+
+            if (invoice == null)
+            {
+                return false;
+            }
+
+            throw new BusinessConflictException(
+                "Issued invoices cannot be deleted. Please void the invoice instead.");
         }
 
         private async Task<string> GenerateInvoiceNumberAsync()

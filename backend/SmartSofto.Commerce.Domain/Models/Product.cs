@@ -60,6 +60,9 @@ namespace SmartSofto.Commerce.Domain.Models
 
         [StringLength(256)]
         public string? ImageFileName { get; set; }
+
+        public bool IsActive { get; set; } = true;
+
         public DateTime? UpdatedAt { get; set; }
 
         public int TenantId { get; set; } = 1;

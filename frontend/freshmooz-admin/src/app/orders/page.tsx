@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { apiAdminOrders, apiAdminUpdateOrderStatus, type AdminOrder } from '@/lib/api'
 import { useClientUser, getToken } from '@/lib/auth'
+import { showError, showSuccess } from '@/lib/alert'
 
 const statusOptions = ['All', 'Pending', 'Delivered', 'Cancelled'] as const
 const editableStatuses = ['Pending', 'Delivered', 'Cancelled'] as const
@@ -98,11 +99,13 @@ function AdminOrdersPageContent() {
       setRows((prev) =>
         prev ? prev.map((r) => (r.id === modalOrder.id ? { ...r, status: nextStatus } : r)) : prev
       )
-      setToast(`Order ${modalOrder.orderNumber || `#${modalOrder.id}`} status updated to ${nextStatus}`)
       setToastLink(null)
       setStatusModalOrderId(null)
+      await showSuccess('Operation completed successfully')
     } catch (e: any) {
-      setErr(e?.message || 'Failed to update order status')
+      const message = e?.message || 'Something went wrong'
+      setErr(message)
+      await showError(message, 'Update failed')
     } finally {
       setStatusSaving(false)
     }
@@ -124,9 +127,9 @@ function AdminOrdersPageContent() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-slate-600">{filtered.length} orders</div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Link href="/orders/new" className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white px-3 py-2 rounded-md text-sm">New Order</Link>
           <select
             className="border rounded-md px-3 py-2"
@@ -232,7 +235,7 @@ function AdminOrdersPageContent() {
               </select>
             </div>
 
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={closeStatusModal}
@@ -261,7 +264,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
   return (
     <div className="landing">
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold">{title}</h1>
           <Link href="/" className="text-[#2B7CBF]">Back to dashboard</Link>
         </div>

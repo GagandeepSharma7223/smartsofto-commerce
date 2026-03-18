@@ -3,8 +3,9 @@ import LoadingState from '@/components/LoadingState'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { resolveUrl, resolveImagePath, apiDeleteProduct } from '@/lib/api'
+import { resolveUrl, resolveImagePath, apiArchiveProduct, apiRestoreProduct, apiDeleteProduct } from '@/lib/api'
 import { useClientUser, getToken } from '@/lib/auth'
+import { confirmAction, showError, showSuccess } from '@/lib/alert'
 
 type UiProduct = {
   id: string
@@ -14,15 +15,16 @@ type UiProduct = {
   price: number
   quantity?: number
   image?: string
+  isActive?: boolean
 }
 
 export default function AdminProductsPage() {
   const user = useClientUser()
   const [items, setItems] = useState<UiProduct[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const token = getToken() || undefined
+  const [showInactive, setShowInactive] = useState(false)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<'name_asc' | 'name_desc' | 'price_asc' | 'price_desc' | 'qty_desc' | 'qty_asc'>('name_asc')
   const [page, setPage] = useState(1)
@@ -31,8 +33,11 @@ export default function AdminProductsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const url = resolveUrl(process.env.NEXT_PUBLIC_PRODUCTS_ENDPOINT || '/api/Products')
-        const res = await fetch(url, { cache: 'no-store' })
+        const url = resolveUrl(`${process.env.NEXT_PUBLIC_PRODUCTS_ENDPOINT || '/api/Products'}?includeInactive=${showInactive}`)
+        const res = await fetch(url, {
+          cache: 'no-store',
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined
+        })
         if (!res.ok) throw new Error('Failed to fetch products')
         const data = await res.json()
         const mapped: UiProduct[] = (data || []).map((p: any) => ({
@@ -43,6 +48,7 @@ export default function AdminProductsPage() {
           price: Number(p.price ?? p.Price ?? 0),
           quantity: Number(p.quantity ?? p.Quantity ?? 0),
           image: resolveImagePath(p.image ?? p.imageUrl ?? p.imageFileName ?? p.ImageFileName),
+          isActive: Boolean(p.isActive ?? p.IsActive ?? true),
         }))
         setItems(mapped)
       } catch (e: any) {
@@ -51,16 +57,7 @@ export default function AdminProductsPage() {
       }
     }
     load()
-    // flash message from create/update
-    try {
-      const msg = sessionStorage.getItem('flash')
-      if (msg) {
-        setToast(msg)
-        sessionStorage.removeItem('flash')
-        setTimeout(() => setToast(null), 3000)
-      }
-    } catch {}
-  }, [])
+  }, [showInactive, token])
 
   if (user === undefined) {
     return (
@@ -87,7 +84,7 @@ export default function AdminProductsPage() {
   return (
     <div className="landing">
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold">Products</h1>
           <Link
             href="/products/new"
@@ -96,11 +93,6 @@ export default function AdminProductsPage() {
             Add New Product
           </Link>
         </div>
-        {toast && (
-          <div className="fixed top-4 right-4 z-50 rounded-xl bg-[#6FAF3D] text-white px-4 py-2 shadow-lg">
-            {toast}
-          </div>
-        )}
         {error && <div className="text-red-600 mb-4">{error}</div>}
         {items === null ? (
           <div>Loading…</div>
@@ -108,7 +100,11 @@ export default function AdminProductsPage() {
           <div className="text-slate-600">No products found.</div>
         ) : (
           <>
-            <div className="mb-4 flex items-center gap-3">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+                Show inactive
+              </label>
               <input
                 className="border rounded-md px-3 py-2 w-full max-w-xs"
                 placeholder="Search name or SKU"
@@ -152,6 +148,7 @@ export default function AdminProductsPage() {
                     <th className="text-left px-3 py-2">SKU</th>
                     <th className="text-right px-3 py-2">Price (₹)</th>
                     <th className="text-right px-3 py-2">Qty</th>
+                    <th className="text-left px-3 py-2">Status</th>
                     <th className="text-left px-3 py-2">Actions</th>
                   </tr>
                 </thead>
@@ -208,19 +205,29 @@ export default function AdminProductsPage() {
                               className="px-2 py-1 border rounded text-red-600 border-red-200 hover:text-red-700 hover:border-red-500 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
                               disabled={deleting === p.id}
                               onClick={async () => {
-                                if (!confirm('Delete this product?')) return
+                                const confirmed = await confirmAction({
+                                  title: 'Delete product',
+                                  text: 'Historical products cannot be removed once used. If this product is referenced, deletion will be blocked and you should archive it instead.',
+                                  confirmText: 'Delete',
+                                  cancelText: 'Cancel',
+                                })
+                                if (!confirmed) return
                                 try {
+                                  setError(null)
                                   setDeleting(p.id)
                                   await apiDeleteProduct(p.id, token)
-                                  setItems(items!.filter((x) => x.id !== p.id))
+                                  setItems((prev) => (prev ? prev.filter((x) => x.id !== p.id) : prev))
+                                  await showSuccess('Operation completed successfully')
                                 } catch (e: any) {
-                                  alert(e?.message || 'Delete failed')
+                                  const message = e?.message || 'Something went wrong'
+                                  setError(message)
+                                  await showError(message, message.toLowerCase().includes('cannot be deleted') ? 'Cannot delete' : 'Delete failed')
                                 } finally {
                                   setDeleting(null)
                                 }
                               }}
                             >
-                              {deleting === p.id ? 'Deleting…' : 'Delete'}
+                              {deleting === p.id ? 'Deleting?' : 'Delete'}
                             </button>
                           </div>
                         </td>
@@ -269,7 +276,7 @@ export default function AdminProductsPage() {
             })()}
           </>
         )}
-      </main>
+    </main>
     </div>
   )
 }

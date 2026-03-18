@@ -286,7 +286,38 @@ export async function apiDeleteProduct(id: string | number, token?: string) {
       ...authHeaders(token)
     }
   })
-  if (!res.ok) throw new Error('Failed to delete product')
+  if (!res.ok) {
+    const message = await res.text().catch(() => '')
+    throw new Error(message || 'Failed to delete product')
+  }
+  return true
+}
+
+export async function apiArchiveProduct(id: string | number, token?: string) {
+  const res = await fetch(resolveUrl(`/api/Products/${id}/archive`), {
+    method: 'PUT',
+    headers: {
+      ...authHeaders(token)
+    }
+  })
+  if (!res.ok) {
+    const message = await res.text().catch(() => '')
+    throw new Error(message || 'Failed to archive product')
+  }
+  return true
+}
+
+export async function apiRestoreProduct(id: string | number, token?: string) {
+  const res = await fetch(resolveUrl(`/api/Products/${id}/restore`), {
+    method: 'PUT',
+    headers: {
+      ...authHeaders(token)
+    }
+  })
+  if (!res.ok) {
+    const message = await res.text().catch(() => '')
+    throw new Error(message || 'Failed to restore product')
+  }
   return true
 }
 
@@ -856,7 +887,10 @@ export async function apiAdminDeleteClient(id: number, token?: string): Promise<
       ...authHeaders(token)
     }
   })
-  if (!res.ok) throw new Error('Failed to delete client')
+  if (!res.ok) {
+    const message = await res.text().catch(() => '')
+    throw new Error(message || 'Failed to delete client')
+  }
 }
 
 // Orders

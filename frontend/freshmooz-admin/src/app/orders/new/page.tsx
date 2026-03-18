@@ -511,15 +511,15 @@ export default function AdminNewOrderPage() {
       </form>
 
       {showAddressModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-4 py-6">
+          <div className="mx-auto w-full max-w-lg rounded-xl bg-white shadow-xl">
             <div className="px-4 py-3 border-b flex items-center justify-between">
               <div className="font-semibold">Add address</div>
               <button className="text-slate-500" onClick={() => setShowAddressModal(false)}>Close</button>
             </div>
             <div className="p-4 space-y-3">
               {addressError && <div className="text-red-600 text-sm">{addressError}</div>}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   className="border rounded-md px-3 py-2"
                   placeholder="Label"
@@ -545,7 +545,7 @@ export default function AdminNewOrderPage() {
                 value={addressForm.addressLine2}
                 onChange={(e) => setAddressForm({ ...addressForm, addressLine2: e.target.value })}
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   className="border rounded-md px-3 py-2"
                   placeholder="City"
@@ -559,7 +559,7 @@ export default function AdminNewOrderPage() {
                   onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   className="border rounded-md px-3 py-2"
                   placeholder="Postal code"
@@ -581,7 +581,7 @@ export default function AdminNewOrderPage() {
                 />
                 Make default
               </label>
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <button className="px-3 py-2 border rounded-md" onClick={() => setShowAddressModal(false)}>Cancel</button>
                 <button
                   className="px-4 py-2 rounded-md bg-[#6FAF3D] text-white hover:bg-[#5F9B34] disabled:opacity-60"
@@ -612,7 +612,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
   return (
     <div className="landing">
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold">{title}</h1>
           <Link href="/orders" className="text-[#2B7CBF]">Back to orders</Link>
         </div>

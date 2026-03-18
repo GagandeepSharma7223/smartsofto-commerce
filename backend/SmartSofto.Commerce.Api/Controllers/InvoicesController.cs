@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SmartSofto.Commerce.Application.Exceptions;
 using SmartSofto.Commerce.Application.Interfaces;
 using SmartSofto.Commerce.Domain.Models;
 
@@ -55,6 +56,26 @@ namespace SmartSofto.Commerce.Api.Controllers
             catch (InvalidOperationException ex)
             {
                 return BadRequest(ex.Message);
+            }
+        }
+
+
+        [Authorize(Roles = "Admin")]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteInvoice(int id)
+        {
+            var tenantId = _tenantService.TenantId;
+            if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
+
+            try
+            {
+                var deleted = await _invoiceService.DeleteInvoiceAsync(tenantId.Value, id);
+                if (!deleted) return NotFound();
+                return NoContent();
+            }
+            catch (BusinessConflictException ex)
+            {
+                return Conflict(ex.Message);
             }
         }
 

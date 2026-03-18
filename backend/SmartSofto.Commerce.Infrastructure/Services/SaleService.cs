@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSofto.Commerce.Application.Exceptions;
 using SmartSofto.Commerce.Application.Interfaces;
 using SmartSofto.Commerce.Domain.Models;
 
@@ -124,6 +125,12 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             var sale = await _context.Sales.FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId);
             if (sale == null)
                 return false;
+
+            if (sale.PaidAmount > 0 || string.Equals(sale.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase) || string.Equals(sale.PaymentStatus, "PartiallyPaid", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessConflictException(
+                    "Recorded payments cannot be deleted. Please create a reversal or refund entry.");
+            }
 
             _context.Sales.Remove(sale);
             await _context.SaveChangesAsync();

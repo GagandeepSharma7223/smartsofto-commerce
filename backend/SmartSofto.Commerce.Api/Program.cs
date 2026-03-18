@@ -86,6 +86,8 @@ builder.Services.AddCors(options =>
             "https://localhost:3001",
             "https://admin.smartsofto.com",
             "https://admin.freshmooz.com",
+            "https://freshmooz.com",
+            "https://www.freshmooz.com",
             "https://smartsofto.com",
             "https://www.smartsofto.com"
         )

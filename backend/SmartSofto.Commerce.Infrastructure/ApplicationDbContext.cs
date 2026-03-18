@@ -61,6 +61,7 @@ namespace SmartSofto.Commerce.Infrastructure
                 entity.Property(e => e.Description).HasMaxLength(500);
                 entity.Property(e => e.Price).HasPrecision(18, 2);
                 entity.Property(e => e.ImageFileName).HasMaxLength(256);
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.TenantId).HasDefaultValue(1);
             });

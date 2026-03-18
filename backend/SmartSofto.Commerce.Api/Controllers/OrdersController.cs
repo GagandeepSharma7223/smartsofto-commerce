@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartSofto.Commerce.Application.DTOs;
+using SmartSofto.Commerce.Application.Exceptions;
 using SmartSofto.Commerce.Application.Interfaces;
 using SmartSofto.Commerce.Domain.Models;
 
@@ -183,6 +184,10 @@ namespace SmartSofto.Commerce.Api.Controllers
                 var deleted = await _orderService.DeleteOrderAsync(tenantId.Value, id, _currentUser.UserId);
                 if (!deleted) return NotFound();
                 return NoContent();
+            }
+            catch (BusinessConflictException ex)
+            {
+                return Conflict(ex.Message);
             }
             catch (InvalidOperationException ex)
             {

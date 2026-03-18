@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { apiAdminInventory, apiAdminAdjustInventory, type AdminInventoryItem } from '@/lib/api'
 import { getToken, useClientUser } from '@/lib/auth'
+import { showError, showSuccess } from '@/lib/alert'
 
 const reasons = [
   'StockIn',
@@ -24,7 +25,6 @@ export default function AdminInventoryPage() {
   const token = getToken() || undefined
   const [items, setItems] = useState<AdminInventoryItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<10 | 20 | 50>(20)
@@ -88,12 +88,13 @@ export default function AdminInventoryPage() {
           ? { ...item, quantity: item.quantity + delta }
           : item
       ) : prev)
-      setToast('Inventory updated')
-      setTimeout(() => setToast(null), 2500)
       setAdjustOpen(false)
       await load()
+      await showSuccess('Operation completed successfully')
     } catch (e: any) {
-      setError(e?.message || 'Failed to adjust inventory')
+      const message = e?.message || 'Something went wrong'
+      setError(message)
+      await showError(message, 'Update failed')
     } finally {
       setAdjusting(false)
     }
@@ -101,10 +102,10 @@ export default function AdminInventoryPage() {
 
   return (
     <Shell title="Inventory">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
-            className="border rounded-md px-3 py-2 w-64"
+            className="w-full rounded-md border px-3 py-2 sm:w-64"
             placeholder="Search by name"
             value={query}
             onChange={(e) => {
@@ -128,11 +129,6 @@ export default function AdminInventoryPage() {
         <Link href="/inventory/transactions" className="text-[#2B7CBF] text-sm">View transactions</Link>
       </div>
 
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 rounded-xl bg-[#6FAF3D] text-white px-4 py-2 shadow-lg">
-          {toast}
-        </div>
-      )}
       {error && <div className="text-red-600 mb-3">{error}</div>}
       {items === null ? (
         <LoadingState />
@@ -165,7 +161,7 @@ export default function AdminInventoryPage() {
                     </Badge>
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                       <Link
                         href={`/inventory/transactions?productId=${item.productId}`}
                         className="text-[#2B7CBF] text-sm"
@@ -210,8 +206,8 @@ export default function AdminInventoryPage() {
       )}
 
       {adjustOpen && selected && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-4 py-6">
+          <div className="mx-auto w-full max-w-md rounded-xl bg-white shadow-xl">
             <div className="px-4 py-3 border-b flex items-center justify-between">
               <div>
                 <div className="font-semibold">Adjust stock</div>
@@ -254,7 +250,7 @@ export default function AdminInventoryPage() {
                   onChange={(e) => setForm({ ...form, note: e.target.value })}
                 />
               </div>
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <button
                   type="button"
                   className="px-3 py-2 border rounded-md"
@@ -282,7 +278,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
   return (
     <div className="landing">
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold">{title}</h1>
           <Link href="/" className="text-[#2B7CBF]">Back to dashboard</Link>
         </div>

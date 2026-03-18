@@ -71,8 +71,8 @@ export default function AdminInventoryTransactionsPage() {
 
   return (
     <Shell title="Inventory Transactions">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <select
             className="border rounded-md px-3 py-2"
             value={productId}
@@ -165,7 +165,7 @@ export default function AdminInventoryTransactionsPage() {
       )}
 
       {items && items.length > 0 && (
-        <div className="mt-4 flex items-center justify-between text-sm">
+        <div className="mt-4 flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="text-slate-600">Page {page}</div>
           <div className="flex items-center gap-2">
             <button
@@ -193,7 +193,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
   return (
     <div className="landing">
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold">{title}</h1>
           <Link href="/" className="text-[#2B7CBF]">Back to dashboard</Link>
         </div>

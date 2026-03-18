@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSofto.Commerce.Application.DTOs;
+using SmartSofto.Commerce.Application.Exceptions;
 using SmartSofto.Commerce.Application.Interfaces;
 using SmartSofto.Commerce.Domain.Models;
 
@@ -527,35 +528,8 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 return false;
             }
 
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
-            {
-                if (order.Status != OrderStatus.Cancelled)
-                {
-                    foreach (var line in GetOrderLines(order))
-                    {
-                        await _inventoryService.AdjustStock(
-                            tenantId,
-                            line.ProductId,
-                            line.Quantity,
-                            "OrderCancelled",
-                            "Order deleted",
-                            userId,
-                            "Order",
-                            order.Id.ToString());
-                    }
-                }
-
-                _context.Orders.Remove(order);
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-                return true;
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+            throw new BusinessConflictException(
+                "This order cannot be deleted because it affects inventory and invoicing. Please cancel it instead.");
         }
 
         private async Task<OrderCreateResult> CreateMultipleOrdersAsync(int tenantId, MultiOrderRequest request, List<OrderLineRequest> lines)
