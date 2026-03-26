@@ -312,6 +312,9 @@ export default function AdminNewOrderPage() {
     setFormErrors(nextErrors)
     if (Object.keys(nextErrors).length) return
 
+    const client = selectedClient
+    if (!client) return
+
     const items = lines.map(l => ({
       productId: l.productId,
       quantity: l.quantity,
@@ -319,14 +322,14 @@ export default function AdminNewOrderPage() {
       discountAmount: l.discountAmount
     }))
     const payload = {
-      clientId: selectedClient.id,
-      name: selectedClient.name,
-      email: selectedClient.email || '',
-      phone: selectedClient.phoneNumber || '',
+      clientId: client.id,
+      name: client.name,
+      email: client.email || '',
+      phone: client.phoneNumber || '',
       items,
-      CustomerName: selectedClient.name,
-      Email: selectedClient.email || '',
-      Phone: selectedClient.phoneNumber || '',
+      CustomerName: client.name,
+      Email: client.email || '',
+      Phone: client.phoneNumber || '',
       ShippingAddressId: Number(selectedAddressId),
       orderDate,
       notes,
