@@ -7,6 +7,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
 {
     public class InventoryService : IInventoryService
     {
+        private const int MaxBackdateDays = 7;
         private readonly ApplicationDbContext _context;
 
         public InventoryService(ApplicationDbContext context)
@@ -23,12 +24,16 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             string? userId,
             string referenceType = "Manual",
             string? referenceId = null,
-            bool allowNegative = false)
+            bool allowNegative = false,
+            DateTime? effectiveDate = null,
+            bool allowBackdating = false)
         {
             if (qtyDelta == 0)
             {
                 throw new InvalidOperationException("Quantity delta must not be 0.");
             }
+
+            var normalizedEffectiveDate = NormalizeEffectiveDate(effectiveDate, note, allowBackdating);
 
             var product = await _context.Products
                 .FirstOrDefaultAsync(p => p.Id == productId && p.TenantId == tenantId);
@@ -63,6 +68,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     ReferenceType = referenceType,
                     ReferenceId = referenceId,
                     Note = note,
+                    EffectiveDate = normalizedEffectiveDate,
                     CreatedUtc = DateTime.UtcNow,
                     CreatedByUserId = userId
                 };
@@ -117,7 +123,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     Quantity = p.Quantity,
                     Price = p.Price,
                     Unit = (int)p.Unit,
-                    IsActive = true
+                    IsActive = p.IsActive
                 })
                 .ToListAsync();
         }
@@ -145,16 +151,19 @@ namespace SmartSofto.Commerce.Infrastructure.Services
 
             if (from.HasValue)
             {
-                query = query.Where(t => t.CreatedUtc >= from.Value);
+                var fromDate = from.Value.Date;
+                query = query.Where(t => t.EffectiveDate >= fromDate);
             }
 
             if (to.HasValue)
             {
-                query = query.Where(t => t.CreatedUtc <= to.Value);
+                var toDate = to.Value.Date;
+                query = query.Where(t => t.EffectiveDate <= toDate);
             }
 
             return await query
-                .OrderByDescending(t => t.CreatedUtc)
+                .OrderByDescending(t => t.EffectiveDate)
+                .ThenByDescending(t => t.CreatedUtc)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(t => new InventoryTransactionDto
@@ -167,10 +176,48 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     ReferenceType = t.ReferenceType,
                     ReferenceId = t.ReferenceId,
                     Note = t.Note,
+                    EffectiveDate = t.EffectiveDate,
                     CreatedUtc = t.CreatedUtc,
                     CreatedByUserId = t.CreatedByUserId
                 })
                 .ToListAsync();
+        }
+
+        private static DateTime NormalizeEffectiveDate(DateTime? effectiveDate, string? note, bool allowBackdating)
+        {
+            var today = GetBusinessToday();
+            var requestedDate = effectiveDate?.Date ?? today;
+
+            if (requestedDate > today)
+            {
+                throw new InvalidOperationException("Future-dated inventory entries are not allowed.");
+            }
+
+            var daysBack = (today - requestedDate).Days;
+            if (daysBack > MaxBackdateDays)
+            {
+                throw new InvalidOperationException("Backdated inventory entries older than 7 days are not allowed.");
+            }
+
+            if (daysBack > 0)
+            {
+                if (!allowBackdating)
+                {
+                    throw new InvalidOperationException("Backdated inventory entries are only allowed for admin users.");
+                }
+
+                if (string.IsNullOrWhiteSpace(note))
+                {
+                    throw new InvalidOperationException("Backdated inventory entries require a note.");
+                }
+            }
+
+            return requestedDate;
+        }
+
+        private static DateTime GetBusinessToday()
+        {
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local).Date;
         }
     }
 }

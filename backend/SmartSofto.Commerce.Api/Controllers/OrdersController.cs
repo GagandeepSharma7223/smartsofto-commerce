@@ -69,7 +69,8 @@ namespace SmartSofto.Commerce.Api.Controllers
             try
             {
                 var tenantId = _tenantService.GetTenantIdOrDefault(1);
-                var result = await _orderService.CreateOrderAsync(tenantId, request);
+                var isAdmin = _currentUser.IsInRole("Admin");
+                var result = await _orderService.CreateOrderAsync(tenantId, request, isAdmin);
 
                 var isMulti = (request.Items != null && request.Items.Count > 0) || (request.Lines != null && request.Lines.Count > 0);
                 if (isMulti)

@@ -30,7 +30,6 @@ namespace SmartSofto.Commerce.Infrastructure.Tests
             var (context, service) = BuildService();
             await using (context)
             {
-                context.Tenants.Add(new Tenant { Id = 1, Code = "T1", Name = "Tenant 1" });
                 context.Products.Add(new Product
                 {
                     Id = 10,
@@ -61,7 +60,6 @@ namespace SmartSofto.Commerce.Infrastructure.Tests
             var (context, service) = BuildService();
             await using (context)
             {
-                context.Tenants.Add(new Tenant { Id = 1, Code = "T1", Name = "Tenant 1" });
                 context.Products.Add(new Product
                 {
                     Id = 11,
@@ -86,7 +84,6 @@ namespace SmartSofto.Commerce.Infrastructure.Tests
             var (context, service) = BuildService();
             await using (context)
             {
-                context.Tenants.Add(new Tenant { Id = 1, Code = "T1", Name = "Tenant 1" });
                 context.Products.Add(new Product
                 {
                     Id = 12,
@@ -108,12 +105,61 @@ namespace SmartSofto.Commerce.Infrastructure.Tests
         }
 
         [Fact]
+        public async Task AdjustStock_Allows_BackdatedEntry_Within7Days()
+        {
+            var (context, service) = BuildService();
+            await using (context)
+            {
+                context.Products.Add(new Product
+                {
+                    Id = 14,
+                    Name = "Curd",
+                    SKU = "SKU005",
+                    Quantity = 5,
+                    Price = 60,
+                    CostPrice = 35,
+                    TenantId = 1,
+                    CreatedAt = DateTime.UtcNow
+                });
+                await context.SaveChangesAsync();
+
+                var effectiveDate = DateTime.UtcNow.Date.AddDays(-2);
+                var txn = await service.AdjustStock(1, 14, 2, "StockIn", "Missed entry", null, effectiveDate: effectiveDate, allowBackdating: true);
+
+                Assert.Equal(effectiveDate, txn.EffectiveDate);
+            }
+        }
+
+        [Fact]
+        public async Task AdjustStock_Rejects_BackdatedEntry_OlderThan7Days()
+        {
+            var (context, service) = BuildService();
+            await using (context)
+            {
+                context.Products.Add(new Product
+                {
+                    Id = 15,
+                    Name = "Lassi",
+                    SKU = "SKU006",
+                    Quantity = 5,
+                    Price = 70,
+                    CostPrice = 40,
+                    TenantId = 1,
+                    CreatedAt = DateTime.UtcNow
+                });
+                await context.SaveChangesAsync();
+
+                await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    service.AdjustStock(1, 15, 2, "StockIn", "Too old", null, effectiveDate: DateTime.UtcNow.Date.AddDays(-8), allowBackdating: true));
+            }
+        }
+
+        [Fact]
         public async Task AdjustStock_Blocks_CrossTenant()
         {
             var (context, service) = BuildService();
             await using (context)
             {
-                context.Tenants.Add(new Tenant { Id = 1, Code = "T1", Name = "Tenant 1" });
                 context.Tenants.Add(new Tenant { Id = 2, Code = "T2", Name = "Tenant 2" });
                 context.Products.Add(new Product
                 {
@@ -134,4 +180,3 @@ namespace SmartSofto.Commerce.Infrastructure.Tests
         }
     }
 }
-

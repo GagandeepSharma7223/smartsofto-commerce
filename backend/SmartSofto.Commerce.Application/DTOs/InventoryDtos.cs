@@ -20,6 +20,7 @@ namespace SmartSofto.Commerce.Application.DTOs
         public string ReferenceType { get; set; } = string.Empty;
         public string? ReferenceId { get; set; }
         public string? Note { get; set; }
+        public DateTime EffectiveDate { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedByUserId { get; set; }
     }

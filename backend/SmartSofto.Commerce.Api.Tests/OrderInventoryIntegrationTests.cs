@@ -8,6 +8,7 @@ using SmartSofto.Commerce.Api.Services;
 using SmartSofto.Commerce.Application.DTOs;
 using SmartSofto.Commerce.Domain.Models;
 using SmartSofto.Commerce.Infrastructure;
+using SmartSofto.Commerce.Infrastructure.Identity;
 using SmartSofto.Commerce.Infrastructure.Services;
 using Xunit;
 
@@ -15,7 +16,7 @@ namespace SmartSofto.Commerce.Api.Tests
 {
     public class OrderInventoryIntegrationTests
     {
-        private static (ApplicationDbContext Context, OrdersController Controller) BuildController()
+        private static (ApplicationDbContext Context, OrdersController Controller) BuildController(bool isAdmin = false)
         {
             var connection = new SqliteConnection("DataSource=:memory:");
             connection.Open();
@@ -33,13 +34,18 @@ namespace SmartSofto.Commerce.Api.Tests
                 new Claim("tenant_id", "1"),
                 new Claim(ClaimTypes.NameIdentifier, "user-1")
             };
+            if (isAdmin)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+            }
             httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "TestAuth"));
 
             var httpContextAccessor = new HttpContextAccessor { HttpContext = httpContext };
             var tenantService = new CurrentTenantService(httpContextAccessor);
             var currentUserService = new CurrentUserService(httpContextAccessor);
             var inventoryService = new InventoryService(context);
-            var orderService = new OrderService(context, inventoryService);
+            var pricingService = new OrderPricingService(context);
+            var orderService = new OrderService(context, inventoryService, pricingService);
             var controller = new OrdersController(orderService, tenantService, currentUserService)
             {
                 ControllerContext = new ControllerContext { HttpContext = httpContext }
@@ -50,7 +56,18 @@ namespace SmartSofto.Commerce.Api.Tests
 
         private static async Task SeedBaseAsync(ApplicationDbContext context)
         {
-            context.Tenants.Add(new Tenant { Id = 1, Code = "T1", Name = "Tenant 1" });
+            context.Users.Add(new ApplicationUser
+            {
+                Id = "user-1",
+                UserName = "user-1",
+                NormalizedUserName = "USER-1",
+                Email = "user-1@example.com",
+                NormalizedEmail = "USER-1@EXAMPLE.COM",
+                TenantId = 1,
+                IsActive = true,
+                EmailConfirmed = true,
+                SecurityStamp = Guid.NewGuid().ToString("N")
+            });
             context.Clients.Add(new Client
             {
                 Id = 1,
@@ -86,7 +103,15 @@ namespace SmartSofto.Commerce.Api.Tests
                     ClientId = 1,
                     ProductId = 1,
                     Quantity = 2,
-                    PaymentMethod = PaymentMethod.Cash
+                    PaymentMethod = PaymentMethod.Cash,
+                    ShippingAddress = new AddressRequest
+                    {
+                        Line1 = "123 Test St",
+                        City = "Regina",
+                        State = "SK",
+                        Pincode = "S4P1A1",
+                        Country = "Canada"
+                    }
                 };
 
                 await controller.CreateOrder(request);
@@ -109,7 +134,15 @@ namespace SmartSofto.Commerce.Api.Tests
                     ClientId = 1,
                     ProductId = 1,
                     Quantity = 2,
-                    PaymentMethod = PaymentMethod.Cash
+                    PaymentMethod = PaymentMethod.Cash,
+                    ShippingAddress = new AddressRequest
+                    {
+                        Line1 = "123 Test St",
+                        City = "Regina",
+                        State = "SK",
+                        Pincode = "S4P1A1",
+                        Country = "Canada"
+                    }
                 });
 
                 var order = await context.Orders.FirstAsync();
@@ -117,6 +150,39 @@ namespace SmartSofto.Commerce.Api.Tests
 
                 var product = await context.Products.FirstAsync(p => p.Id == 1);
                 Assert.Equal(10, product.Quantity);
+            }
+        }
+
+        [Fact]
+        public async Task Admin_Can_Create_Backdated_Order_Within7Days()
+        {
+            var (context, controller) = BuildController(isAdmin: true);
+            await using (context)
+            {
+                await SeedBaseAsync(context);
+
+                await controller.CreateOrder(new MultiOrderRequest
+                {
+                    ClientId = 1,
+                    ProductId = 1,
+                    Quantity = 1,
+                    PaymentMethod = PaymentMethod.Cash,
+                    OrderDate = DateTime.UtcNow.Date.AddDays(-2),
+                    Notes = "Entered after store close",
+                    ShippingAddress = new AddressRequest
+                    {
+                        Line1 = "123 Test St",
+                        City = "Regina",
+                        State = "SK",
+                        Pincode = "S4P1A1",
+                        Country = "Canada"
+                    }
+                });
+
+                var order = await context.Orders.FirstAsync();
+                var txn = await context.InventoryTransactions.FirstAsync();
+                Assert.Equal(DateTime.UtcNow.Date.AddDays(-2), order.OrderDate.Date);
+                Assert.Equal(order.OrderDate.Date, txn.EffectiveDate.Date);
             }
         }
 
@@ -133,7 +199,15 @@ namespace SmartSofto.Commerce.Api.Tests
                     ClientId = 1,
                     ProductId = 1,
                     Quantity = 2,
-                    PaymentMethod = PaymentMethod.Cash
+                    PaymentMethod = PaymentMethod.Cash,
+                    ShippingAddress = new AddressRequest
+                    {
+                        Line1 = "123 Test St",
+                        City = "Regina",
+                        State = "SK",
+                        Pincode = "S4P1A1",
+                        Country = "Canada"
+                    }
                 });
 
                 var order = await context.Orders.FirstAsync();

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { apiAdminInvoices, apiAdminCreateInvoice, type AdminInvoice } from '@/lib/api'
 import { useClientUser } from '@/lib/auth'
+import { FieldError, fieldClass } from '@/lib/form-ui'
 
 type InvoiceGroup = {
   orderId: number
@@ -313,7 +314,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
                 </div>
               )}
             </div>
-            <form onSubmit={submit} className="space-y-3">
+            <form onSubmit={submit} noValidate className="space-y-3">
               <div>
                 <label className="block text-sm mb-1">Order ID</label>
                 <input
@@ -328,12 +329,15 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
                   ref={amountRef}
                   type="number"
                   step="0.01"
-                  className="border rounded-md px-3 py-2 w-full"
+                  className={fieldClass(!!amountError)}
                   value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  required
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setForm({ ...form, amount: value })
+                    setAmountError(Number(value) > 0 ? null : amountError)
+                  }}
                 />
-                {amountError && <div className="text-xs text-red-600 mt-1">{amountError}</div>}
+                <FieldError error={amountError} />
               </div>
               <div>
                 <label className="block text-sm mb-1">Payment method</label>

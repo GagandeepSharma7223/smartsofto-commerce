@@ -104,6 +104,7 @@ namespace SmartSofto.Commerce.Infrastructure
                 entity.Property(e => e.ShippingState).HasMaxLength(50);
                 entity.Property(e => e.ShippingPostalCode).HasMaxLength(20);
                 entity.Property(e => e.ShippingCountry).HasMaxLength(50);
+                entity.Property(e => e.OrderDate).HasColumnType("date");
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.TenantId).HasDefaultValue(1);
             });
@@ -153,6 +154,7 @@ namespace SmartSofto.Commerce.Infrastructure
 
             builder.Entity<Invoice>(entity =>
             {
+                entity.Property(e => e.InvoiceDate).HasColumnType("date");
                 entity.Property(e => e.CreatedUtc).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
 
@@ -196,6 +198,7 @@ namespace SmartSofto.Commerce.Infrastructure
                 entity.Property(e => e.ReferenceType).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.ReferenceId).HasMaxLength(100);
                 entity.Property(e => e.Note).HasColumnType("text");
+                entity.Property(e => e.EffectiveDate).HasColumnType("date");
                 entity.Property(e => e.CreatedUtc).HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.TenantId).HasDefaultValue(1);
 

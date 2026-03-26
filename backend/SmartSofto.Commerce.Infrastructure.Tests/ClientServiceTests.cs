@@ -30,7 +30,6 @@ namespace SmartSofto.Commerce.Infrastructure.Tests
             var (context, service) = BuildService();
             await using (context)
             {
-                context.Tenants.Add(new Tenant { Id = 1, Code = "T1", Name = "Tenant 1" });
                 context.Clients.Add(new Client
                 {
                     Id = 1,

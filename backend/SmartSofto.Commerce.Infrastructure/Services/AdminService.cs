@@ -71,6 +71,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     PaymentMethod = o.PaymentMethod,
                     InvoiceStatus = o.InvoiceStatus,
                     AmountPaid = o.AmountPaid,
+                    OrderDate = o.OrderDate,
                     CreatedAt = o.CreatedAt,
                     UpdatedAt = o.UpdatedAt,
                     RemainingAmount = o.TotalAmount - o.AmountPaid
@@ -110,6 +111,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     ReferenceNumber = i.ReferenceNumber,
                     Status = i.Status,
                     Notes = i.Notes,
+                    InvoiceDate = i.InvoiceDate,
                     CreatedAt = i.CreatedAt,
                     UpdatedAt = i.UpdatedAt,
                     OrderTotalAmount = i.Order != null ? i.Order.TotalAmount : null,
@@ -145,6 +147,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 ReferenceNumber = request.ReferenceNumber,
                 Notes = request.Notes,
                 Status = InvoiceStatus.Paid,
+                InvoiceDate = DateTime.UtcNow.Date,
                 CreatedAt = DateTime.UtcNow,
                 CreatedUtc = DateTime.UtcNow,
                 TenantId = tenantId,

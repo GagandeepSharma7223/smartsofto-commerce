@@ -4,10 +4,14 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { apiForgotPassword, apiResetPassword } from '@/lib/api'
+import { FieldError, fieldClass, isBlank, isEmail } from '@/lib/form-ui'
+
+type RequestErrors = { email?: string }
+type ResetErrors = { email?: string; newPassword?: string; confirmPassword?: string }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="landing"><main className="max-w-md mx-auto px-4 py-10">Loading...</main></div>}>
+    <Suspense fallback={<div className="landing"><main className="max-w-md mx-auto px-4 py-10"><LoadingState /></main></div>}>
       <ResetPasswordContent />
     </Suspense>
   )
@@ -24,6 +28,8 @@ function ResetPasswordContent() {
   const [token, setToken] = useState(tokenParam)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [requestErrors, setRequestErrors] = useState<RequestErrors>({})
+  const [resetErrors, setResetErrors] = useState<ResetErrors>({})
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -35,6 +41,12 @@ function ResetPasswordContent() {
 
   const onRequestLink = async (e: React.FormEvent) => {
     e.preventDefault()
+    const nextErrors: RequestErrors = {}
+    if (isBlank(email)) nextErrors.email = 'Email is required.'
+    else if (!isEmail(email.trim())) nextErrors.email = 'Enter a valid email address.'
+    setRequestErrors(nextErrors)
+    if (Object.keys(nextErrors).length) return
+
     setMessage(null)
     setError(null)
     setLoading(true)
@@ -50,19 +62,21 @@ function ResetPasswordContent() {
 
   const onResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
+    const nextErrors: ResetErrors = {}
+    if (isBlank(email)) nextErrors.email = 'Email is required.'
+    else if (!isEmail(email.trim())) nextErrors.email = 'Enter a valid email address.'
+    if (isBlank(newPassword)) nextErrors.newPassword = 'New password is required.'
+    else if (newPassword.length < 6) nextErrors.newPassword = 'Password must be at least 6 characters.'
+    if (isBlank(confirmPassword)) nextErrors.confirmPassword = 'Please confirm the password.'
+    else if (newPassword !== confirmPassword) nextErrors.confirmPassword = 'Passwords do not match.'
+    setResetErrors(nextErrors)
+    if (Object.keys(nextErrors).length) return
+
     setMessage(null)
     setError(null)
 
     if (!email || !token) {
       setError('Reset link is missing or invalid.')
-      return
-    }
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters.')
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.')
       return
     }
 
@@ -86,16 +100,16 @@ function ResetPasswordContent() {
         {error && <div className="mb-4 text-red-600">{error}</div>}
 
         {!hasToken ? (
-          <form onSubmit={onRequestLink} className="space-y-4">
+          <form onSubmit={onRequestLink} noValidate className="space-y-4">
             <div>
               <label className="block text-sm mb-1">Email</label>
               <input
                 type="email"
-                className="w-full border rounded-md px-3 py-2"
+                className={fieldClass(!!requestErrors.email)}
                 value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
+                onChange={e => { const value=e.target.value; setEmail(value); setRequestErrors(prev=>({...prev, email: isEmail(value.trim()) ? undefined : prev.email})) }}
               />
+              <FieldError error={requestErrors.email} />
             </div>
             <button
               type="submit"
@@ -109,38 +123,36 @@ function ResetPasswordContent() {
             </div>
           </form>
         ) : (
-          <form onSubmit={onResetPassword} className="space-y-4">
+          <form onSubmit={onResetPassword} noValidate className="space-y-4">
             <div>
               <label className="block text-sm mb-1">Email</label>
               <input
                 type="email"
-                className="w-full border rounded-md px-3 py-2"
+                className={fieldClass(!!resetErrors.email)}
                 value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
+                onChange={e => { const value=e.target.value; setEmail(value); setResetErrors(prev=>({...prev, email: isEmail(value.trim()) ? undefined : prev.email})) }}
               />
+              <FieldError error={resetErrors.email} />
             </div>
             <div>
               <label className="block text-sm mb-1">New password</label>
               <input
                 type="password"
-                className="w-full border rounded-md px-3 py-2"
+                className={fieldClass(!!resetErrors.newPassword)}
                 value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                required
-                minLength={6}
+                onChange={e => { const value=e.target.value; setNewPassword(value); setResetErrors(prev=>({...prev, newPassword: value.length >= 6 ? undefined : prev.newPassword})) }}
               />
+              <FieldError error={resetErrors.newPassword} />
             </div>
             <div>
               <label className="block text-sm mb-1">Confirm password</label>
               <input
                 type="password"
-                className="w-full border rounded-md px-3 py-2"
+                className={fieldClass(!!resetErrors.confirmPassword)}
                 value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
+                onChange={e => { const value=e.target.value; setConfirmPassword(value); setResetErrors(prev=>({...prev, confirmPassword: newPassword && newPassword == value ? undefined : prev.confirmPassword})) }}
               />
+              <FieldError error={resetErrors.confirmPassword} />
             </div>
             <button
               type="submit"

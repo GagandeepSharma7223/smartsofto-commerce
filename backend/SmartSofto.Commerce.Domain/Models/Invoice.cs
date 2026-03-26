@@ -34,6 +34,9 @@ namespace SmartSofto.Commerce.Domain.Models
         [Column(TypeName = "integer")]
         public InvoiceStatus Status { get; set; } = InvoiceStatus.Unpaid;
 
+        [Column(TypeName = "date")]
+        public DateTime InvoiceDate { get; set; }
+
         public DateTime CreatedAt { get; set; }
 
         public DateTime CreatedUtc { get; set; }

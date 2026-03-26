@@ -41,10 +41,13 @@ namespace SmartSofto.Commerce.Application.DTOs
     public class MultiOrderRequest
     {
         public DateTime? OrderDate { get; set; }
+        public OrderStatus? InitialOrderStatus { get; set; }
         public int? ClientId { get; set; }
         public int? ProductId { get; set; }
         public int Quantity { get; set; }
         public PaymentMethod? PaymentMethod { get; set; }
+        public decimal? PaymentAmount { get; set; }
+        public DateTime? PaymentDate { get; set; }
         public string? Notes { get; set; }
         public string? CustomerName { get; set; }
         public string? Email { get; set; }

@@ -34,6 +34,9 @@ namespace SmartSofto.Commerce.Domain.Models
         [Column(TypeName = "text")]
         public string? Note { get; set; }
 
+        [Column(TypeName = "date")]
+        public DateTime EffectiveDate { get; set; }
+
         public DateTime CreatedUtc { get; set; }
 
         [MaxLength(450)]

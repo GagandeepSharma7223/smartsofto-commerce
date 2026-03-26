@@ -111,6 +111,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             }
 
             invoice.InvoiceNumber = await GenerateInvoiceNumberAsync();
+            invoice.InvoiceDate = invoice.InvoiceDate == default ? DateTime.UtcNow.Date : invoice.InvoiceDate.Date;
             invoice.CreatedAt = DateTime.UtcNow;
             invoice.CreatedUtc = DateTime.UtcNow;
             invoice.Status = InvoiceStatus.Unpaid;

@@ -22,7 +22,8 @@ namespace SmartSofto.Commerce.Infrastructure.Tests
             context.Database.EnsureCreated();
 
             var inventoryService = new InventoryService(context);
-            return (context, new OrderService(context, inventoryService));
+            var pricingService = new OrderPricingService(context);
+            return (context, new OrderService(context, inventoryService, pricingService));
         }
 
         [Fact]
@@ -31,7 +32,6 @@ namespace SmartSofto.Commerce.Infrastructure.Tests
             var (context, service) = BuildService();
             await using (context)
             {
-                context.Tenants.Add(new Tenant { Id = 1, Code = "T1", Name = "Tenant 1" });
                 context.Tenants.Add(new Tenant { Id = 2, Code = "T2", Name = "Tenant 2" });
 
                 var client1 = new Client { Id = 1, Name = "Client 1", Email = "c1@example.com", TenantId = 1, CreatedAt = DateTime.UtcNow };

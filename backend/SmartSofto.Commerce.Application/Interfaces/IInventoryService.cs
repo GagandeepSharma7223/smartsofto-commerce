@@ -14,7 +14,9 @@ namespace SmartSofto.Commerce.Application.Interfaces
             string? userId,
             string referenceType = "Manual",
             string? referenceId = null,
-            bool allowNegative = false);
+            bool allowNegative = false,
+            DateTime? effectiveDate = null,
+            bool allowBackdating = false);
 
         Task<IReadOnlyList<InventoryItemDto>> GetInventory(
             int tenantId,

@@ -130,6 +130,7 @@ export default function AdminInventoryTransactionsPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-slate-700">
               <tr>
+                <th className="text-left px-3 py-2">Business Date</th>
                 <th className="text-left px-3 py-2">Created</th>
                 <th className="text-left px-3 py-2">Product</th>
                 <th className="text-right px-3 py-2">Qty Delta</th>
@@ -141,6 +142,9 @@ export default function AdminInventoryTransactionsPage() {
             <tbody>
               {items.map((t) => (
                 <tr key={t.id} className="border-t">
+                  <td className="px-3 py-2">
+                    {new Date(t.effectiveDate).toLocaleDateString()}
+                  </td>
                   <td className="px-3 py-2">
                     {new Date(t.createdUtc).toLocaleString()}
                   </td>

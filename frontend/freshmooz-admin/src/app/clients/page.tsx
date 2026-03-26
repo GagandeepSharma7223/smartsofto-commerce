@@ -18,6 +18,7 @@ import {
 } from '@/lib/api'
 import { getToken, useClientUser } from '@/lib/auth'
 import { confirmAction, showError, showSuccess } from '@/lib/alert'
+import { FieldError, fieldClass, isBlank, isEmail } from '@/lib/form-ui'
 
 const clientTypes = ['Regular', 'VIP', 'Wholesale']
 
@@ -30,6 +31,11 @@ type ClientForm = {
   clientType: string
   isActive: boolean
   notes: string
+}
+
+type ClientFormErrors = {
+  name?: string
+  email?: string
 }
 
 type AddressForm = {
@@ -81,6 +87,7 @@ export default function ClientsPage() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<AdminClient | null>(null)
   const [form, setForm] = useState<ClientForm>({ ...emptyForm })
+  const [formErrors, setFormErrors] = useState<ClientFormErrors>({})
   const [addresses, setAddresses] = useState<AddressForm[]>([])
   const [removedAddressIds, setRemovedAddressIds] = useState<number[]>([])
   const [addressLoading, setAddressLoading] = useState(false)
@@ -121,6 +128,7 @@ export default function ClientsPage() {
   const openCreate = () => {
     setEditing(null)
     setForm({ ...emptyForm })
+    setFormErrors({})
     setAddresses([])
     setRemovedAddressIds([])
     setOpen(true)
@@ -128,6 +136,7 @@ export default function ClientsPage() {
 
   const openEdit = async (client: AdminClient) => {
     setEditing(client)
+    setFormErrors({})
     setForm({
       name: client.name || '',
       referenceName: client.referenceName || client.name || '',
@@ -202,6 +211,12 @@ export default function ClientsPage() {
 
   const saveClient = async (e: React.FormEvent) => {
     e.preventDefault()
+    const nextErrors: ClientFormErrors = {}
+    if (isBlank(form.name)) nextErrors.name = 'Name is required.'
+    if (form.email.trim() && !isEmail(form.email.trim())) nextErrors.email = 'Enter a valid email address.'
+    setFormErrors(nextErrors)
+    if (Object.keys(nextErrors).length) return
+
     setSaving(true)
     setError(null)
 
@@ -378,16 +393,20 @@ export default function ClientsPage() {
                 Close
               </button>
             </div>
-            <form className="p-4 space-y-4" onSubmit={saveClient}>
+            <form className="p-4 space-y-4" onSubmit={saveClient} noValidate>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm mb-1">Name</label>
                   <input
-                    className="border rounded-md px-3 py-2 w-full"
+                    className={fieldClass(!!formErrors.name)}
                     value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    required
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setForm({ ...form, name: value })
+                      setFormErrors((prev) => ({ ...prev, name: value.trim() ? undefined : prev.name }))
+                    }}
                   />
+                  <FieldError error={formErrors.name} />
                 </div>
                 <div>
                   <label className="block text-sm mb-1">Reference Name</label>
@@ -404,10 +423,15 @@ export default function ClientsPage() {
                   <label className="block text-sm mb-1">Email</label>
                   <input
                     type="email"
-                    className="border rounded-md px-3 py-2 w-full"
+                    className={fieldClass(!!formErrors.email)}
                     value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setForm({ ...form, email: value })
+                      setFormErrors((prev) => ({ ...prev, email: !value.trim() || isEmail(value.trim()) ? undefined : prev.email }))
+                    }}
                   />
+                  <FieldError error={formErrors.email} />
                 </div>
                 <div>
                   <label className="block text-sm mb-1">Phone</label>

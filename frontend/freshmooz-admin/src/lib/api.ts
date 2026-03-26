@@ -359,6 +359,24 @@ export type AdminPriceLine = { productId: number; quantity: number; unitPrice?: 
 export type AdminPriceItem = { productId: number; productName?: string; quantity: number; unitPrice: number; discountAmount: number; lineTotal: number }
 export type AdminPriceResponse = { totalItems: number; subtotal: number; discountTotal: number; total: number; items: AdminPriceItem[] }
 
+export type AdminCreateOrderPayload = {
+  clientId: number
+  name: string
+  email: string
+  phone: string
+  items: AdminPriceLine[]
+  CustomerName: string
+  Email: string
+  Phone: string
+  ShippingAddressId: number
+  orderDate: string
+  notes: string
+  initialOrderStatus?: number
+  paymentMethod?: number
+  paymentAmount?: number
+  paymentDate?: string
+}
+
 export async function apiAdminPriceOrder(items: AdminPriceLine[], token?: string): Promise<AdminPriceResponse> {
   const res = await fetch(resolveUrl('/api/Orders/price'), {
     method: 'POST',
@@ -372,7 +390,7 @@ export async function apiAdminPriceOrder(items: AdminPriceLine[], token?: string
   return res.json()
 }
 
-export async function apiAdminCreateOrder(payload: any, token?: string) {
+export async function apiAdminCreateOrder(payload: AdminCreateOrderPayload, token?: string) {
   const res = await fetch(resolveUrl('/api/Orders'), {
     method: 'POST',
     headers: {
@@ -407,6 +425,7 @@ export async function apiAdminDashboard(): Promise<AdminDashboardSummary> {
 
 export type AdminOrder = {
   id: number
+  orderDate?: string
   orderNumber?: string
   clientId?: number
   clientName?: string
@@ -475,6 +494,7 @@ export async function apiAdminOrders(status?: string): Promise<AdminOrder[]> {
     paymentMethod: toLabel(o.paymentMethod ?? o.PaymentMethod, PAYMENT_METHOD_LABELS, '-'),
     invoiceStatus: toLabel(o.invoiceStatus ?? o.InvoiceStatus, INVOICE_STATUS_LABELS, 'Unpaid'),
     amountPaid: Number(o.amountPaid ?? o.AmountPaid ?? 0),
+    orderDate: o.orderDate ?? o.OrderDate ?? undefined,
     createdAt: o.createdAt ?? o.CreatedAt ?? undefined,
     updatedAt: o.updatedAt ?? o.UpdatedAt ?? undefined,
     remainingAmount: Number(o.remainingAmount ?? o.RemainingAmount ?? 0)
@@ -609,6 +629,7 @@ export async function apiAdminAdjustInventory(input: {
   qtyDelta: number
   reason: string
   note?: string
+  effectiveDate?: string
   token?: string
 }) {
   const { token, ...payload } = input
@@ -620,12 +641,16 @@ export async function apiAdminAdjustInventory(input: {
     },
     body: JSON.stringify(payload)
   })
-  if (!res.ok) throw new Error('Failed to adjust inventory')
+  if (!res.ok) {
+    const message = await res.text().catch(() => '')
+    throw new Error(message || 'Failed to adjust inventory')
+  }
   return res.json()
 }
 
 export type AdminInventoryTransaction = {
   id: number
+  effectiveDate: string
   productId: number
   productName?: string
   quantityDelta: number

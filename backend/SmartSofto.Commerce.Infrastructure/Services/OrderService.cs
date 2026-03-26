@@ -248,12 +248,12 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             return address;
         }
 
-        public async Task<OrderCreateResult> CreateOrderAsync(int tenantId, MultiOrderRequest request)
+        public async Task<OrderCreateResult> CreateOrderAsync(int tenantId, MultiOrderRequest request, bool allowBackdating)
         {
             var lines = request.Items ?? request.Lines;
             if (lines != null && lines.Any())
             {
-                return await CreateMultipleOrdersAsync(tenantId, request, lines);
+                return await CreateMultipleOrdersAsync(tenantId, request, lines, allowBackdating);
             }
 
             if (!request.ProductId.HasValue || request.ProductId.Value == 0)
@@ -290,10 +290,12 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             }
 
             var shippingAddress = await ResolveShippingAddressAsync(tenantId, client, request);
+            var businessOrderDate = ResolveBusinessOrderDate(request.OrderDate, request.Notes, allowBackdating);
+            var orderStatus = ResolveRequestedOrderStatus(request.InitialOrderStatus, allowBackdating);
 
             var order = new Order
             {
-                OrderDate = request.OrderDate ?? DateTime.UtcNow,
+                OrderDate = businessOrderDate,
                 ClientId = client.Id,
                 ProductId = line.ProductId,
                 Quantity = line.Quantity,
@@ -302,7 +304,8 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 OrderNumber = await GenerateOrderNumberAsync(),
                 TenantId = client.TenantId,
                 CreatedAt = DateTime.UtcNow,
-                Status = OrderStatus.Pending,
+                Status = orderStatus,
+                InvoiceStatus = InvoiceStatus.Unpaid,
                 UnitPrice = line.UnitPrice,
                 TotalAmount = pricing.Total,
                 ShippingName = shippingAddress.Name,
@@ -340,7 +343,10 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     "Order placed",
                     null,
                     "Order",
-                    order.Id.ToString());
+                    order.Id.ToString(),
+                    false,
+                    businessOrderDate,
+                    allowBackdating);
 
                 var invoice = new Invoice
                 {
@@ -349,12 +355,15 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     Amount = order.TotalAmount,
                     PaymentMethod = order.PaymentMethod,
                     Status = InvoiceStatus.Unpaid,
+                    InvoiceDate = businessOrderDate,
                     CreatedAt = DateTime.UtcNow,
                     CreatedUtc = DateTime.UtcNow,
                     TenantId = order.TenantId
                 };
                 _context.Invoices.Add(invoice);
                 await _context.SaveChangesAsync();
+
+                await ApplyInitialPaymentAsync(order, request, allowBackdating);
 
                 await transaction.CommitAsync();
 
@@ -374,8 +383,9 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     PaymentMethod = order.PaymentMethod,
                     InvoiceId = invoice.Id,
                     InvoiceNumber = invoice.InvoiceNumber,
-                    InvoiceStatus = invoice.Status,
-                    CreatedAt = order.CreatedAt
+                    InvoiceStatus = order.InvoiceStatus,
+                    CreatedAt = order.CreatedAt,
+                    AmountPaid = order.AmountPaid
                 };
             }
             catch
@@ -532,7 +542,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 "This order cannot be deleted because it affects inventory and invoicing. Please cancel it instead.");
         }
 
-        private async Task<OrderCreateResult> CreateMultipleOrdersAsync(int tenantId, MultiOrderRequest request, List<OrderLineRequest> lines)
+        private async Task<OrderCreateResult> CreateMultipleOrdersAsync(int tenantId, MultiOrderRequest request, List<OrderLineRequest> lines, bool allowBackdating)
         {
             Client? client = null;
             if (request.ClientId.HasValue && request.ClientId.Value > 0)
@@ -565,6 +575,8 @@ namespace SmartSofto.Commerce.Infrastructure.Services
 
             var paymentMethod = request.PaymentMethod ?? PaymentMethod.Cash;
             var now = DateTime.UtcNow;
+            var businessOrderDate = ResolveBusinessOrderDate(request.OrderDate, request.Notes, allowBackdating);
+            var orderStatus = ResolveRequestedOrderStatus(request.InitialOrderStatus, allowBackdating);
 
             var pricingInputs = lines.Select(l => new PricingLineInput
             {
@@ -595,14 +607,14 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 var order = new Order
                 {
                     OrderNumber = await GenerateOrderNumberAsync(),
-                    OrderDate = request.OrderDate ?? now,
+                    OrderDate = businessOrderDate,
                     ClientId = client.Id,
                     Client = client,
                     ProductId = firstLine.ProductId,
                     Quantity = firstLine.Quantity,
                     UnitPrice = firstLine.UnitPrice,
                     TotalAmount = pricing.Total,
-                    Status = OrderStatus.Pending,
+                    Status = orderStatus,
                     PaymentMethod = paymentMethod,
                     InvoiceStatus = InvoiceStatus.Unpaid,
                     AmountPaid = 0,
@@ -633,7 +645,10 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                         "Order placed",
                         null,
                         "Order",
-                        order.Id.ToString());
+                        order.Id.ToString(),
+                        false,
+                        businessOrderDate,
+                        allowBackdating);
                 }
 
                 var invoice = new Invoice
@@ -643,12 +658,15 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     Amount = order.TotalAmount,
                     PaymentMethod = order.PaymentMethod,
                     Status = InvoiceStatus.Unpaid,
+                    InvoiceDate = businessOrderDate,
                     CreatedAt = DateTime.UtcNow,
                     CreatedUtc = DateTime.UtcNow,
                     TenantId = order.TenantId
                 };
                 _context.Invoices.Add(invoice);
                 await _context.SaveChangesAsync();
+
+                await ApplyInitialPaymentAsync(order, request, allowBackdating);
 
                 await transaction.CommitAsync();
 
@@ -664,7 +682,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     AmountPaid = order.AmountPaid,
                     InvoiceId = invoice.Id,
                     InvoiceNumber = invoice.InvoiceNumber,
-                    InvoiceStatus = invoice.Status,
+                    InvoiceStatus = order.InvoiceStatus,
                     CreatedAt = order.CreatedAt,
                     Items = pricing.Lines.Select(line => new OrderCreateItemResult
                     {
@@ -682,6 +700,142 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 await transaction.RollbackAsync();
                 throw;
             }
+        }
+
+        private static OrderStatus ResolveRequestedOrderStatus(OrderStatus? requestedOrderStatus, bool isAdmin)
+        {
+            if (!isAdmin || requestedOrderStatus == null)
+            {
+                return OrderStatus.Pending;
+            }
+
+            if (!Enum.IsDefined(typeof(OrderStatus), requestedOrderStatus.Value))
+            {
+                throw new InvalidOperationException("Invalid order status.");
+            }
+
+            if (requestedOrderStatus.Value == OrderStatus.Cancelled)
+            {
+                throw new InvalidOperationException("Cancelled status is not allowed when creating a new order.");
+            }
+
+            return requestedOrderStatus.Value;
+        }
+
+        private async Task ApplyInitialPaymentAsync(Order order, MultiOrderRequest request, bool isAdmin)
+        {
+            var paymentAmount = request.PaymentAmount ?? 0m;
+            if (paymentAmount <= 0)
+            {
+                order.AmountPaid = 0;
+                order.InvoiceStatus = InvoiceStatus.Unpaid;
+                return;
+            }
+
+            if (!request.PaymentMethod.HasValue || !Enum.IsDefined(typeof(PaymentMethod), request.PaymentMethod.Value))
+            {
+                throw new InvalidOperationException("Payment method is required when recording an initial payment.");
+            }
+
+            if (paymentAmount > order.TotalAmount)
+            {
+                throw new InvalidOperationException($"Payment amount cannot exceed order total of {order.TotalAmount}.");
+            }
+
+            var paymentDate = ResolvePaymentDate(request.PaymentDate, order.OrderDate, request.Notes, isAdmin);
+            var payment = new Invoice
+            {
+                OrderId = order.Id,
+                InvoiceNumber = await GenerateInvoiceNumberAsync(),
+                Amount = paymentAmount,
+                PaymentMethod = request.PaymentMethod.Value,
+                Status = InvoiceStatus.Paid,
+                InvoiceDate = paymentDate,
+                Notes = request.Notes,
+                CreatedAt = DateTime.UtcNow,
+                CreatedUtc = DateTime.UtcNow,
+                TenantId = order.TenantId
+            };
+
+            _context.Invoices.Add(payment);
+            order.AmountPaid = paymentAmount;
+            order.InvoiceStatus = paymentAmount >= order.TotalAmount ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
+            order.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
+        private static DateTime ResolvePaymentDate(DateTime? requestedPaymentDate, DateTime orderDate, string? notes, bool isAdmin)
+        {
+            var today = GetBusinessToday();
+            var paymentDate = requestedPaymentDate?.Date ?? orderDate.Date;
+
+            if (paymentDate > today)
+            {
+                throw new InvalidOperationException("Future-dated payments are not allowed.");
+            }
+
+            var daysBack = (today - paymentDate).Days;
+            if (daysBack > 7)
+            {
+                throw new InvalidOperationException("Backdated payments older than 7 days are not allowed.");
+            }
+
+            if (paymentDate < orderDate.Date)
+            {
+                throw new InvalidOperationException("Payment date cannot be earlier than the order date.");
+            }
+
+            if (daysBack > 0)
+            {
+                if (!isAdmin)
+                {
+                    throw new InvalidOperationException("Backdated payments are only allowed for admin users.");
+                }
+
+                if (string.IsNullOrWhiteSpace(notes))
+                {
+                    throw new InvalidOperationException("Backdated payments require a note.");
+                }
+            }
+
+            return paymentDate;
+        }
+
+        private static DateTime ResolveBusinessOrderDate(DateTime? requestedOrderDate, string? notes, bool allowBackdating)
+        {
+            var today = GetBusinessToday();
+            var orderDate = requestedOrderDate?.Date ?? today;
+
+            if (orderDate > today)
+            {
+                throw new InvalidOperationException("Future-dated orders are not allowed.");
+            }
+
+            var daysBack = (today - orderDate).Days;
+            if (daysBack > 7)
+            {
+                throw new InvalidOperationException("Backdated orders older than 7 days are not allowed.");
+            }
+
+            if (daysBack > 0)
+            {
+                if (!allowBackdating)
+                {
+                    throw new InvalidOperationException("Backdated orders are only allowed for admin users.");
+                }
+
+                if (string.IsNullOrWhiteSpace(notes))
+                {
+                    throw new InvalidOperationException("Backdated orders require a note.");
+                }
+            }
+
+            return orderDate;
+        }
+
+        private static DateTime GetBusinessToday()
+        {
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local).Date;
         }
 
         private async Task<string> GenerateOrderNumberAsync()

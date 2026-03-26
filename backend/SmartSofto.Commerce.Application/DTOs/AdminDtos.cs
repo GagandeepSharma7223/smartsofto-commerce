@@ -40,6 +40,7 @@ namespace SmartSofto.Commerce.Application.DTOs
         public PaymentMethod PaymentMethod { get; set; }
         public InvoiceStatus InvoiceStatus { get; set; }
         public decimal AmountPaid { get; set; }
+        public DateTime OrderDate { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public decimal RemainingAmount { get; set; }
@@ -57,6 +58,7 @@ namespace SmartSofto.Commerce.Application.DTOs
         public string? ReferenceNumber { get; set; }
         public InvoiceStatus Status { get; set; }
         public string? Notes { get; set; }
+        public DateTime InvoiceDate { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public decimal? OrderTotalAmount { get; set; }
@@ -83,6 +85,7 @@ namespace SmartSofto.Commerce.Application.DTOs
         public InvoiceStatus Status { get; set; }
         public string? ReferenceNumber { get; set; }
         public string? Notes { get; set; }
+        public DateTime InvoiceDate { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 

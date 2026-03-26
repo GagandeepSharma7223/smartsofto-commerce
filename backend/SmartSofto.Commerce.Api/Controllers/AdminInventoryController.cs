@@ -41,6 +41,7 @@ namespace SmartSofto.Commerce.Api.Controllers
             public int QtyDelta { get; set; }
             public string Reason { get; set; } = string.Empty;
             public string? Note { get; set; }
+            public DateTime? EffectiveDate { get; set; }
         }
 
         [HttpPost("adjust")]
@@ -75,7 +76,9 @@ namespace SmartSofto.Commerce.Api.Controllers
                     userId,
                     "Manual",
                     null,
-                    false);
+                    false,
+                    request.EffectiveDate,
+                    true);
 
                 return Ok(entry);
             }

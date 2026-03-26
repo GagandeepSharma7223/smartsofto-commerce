@@ -4,15 +4,29 @@ import { useState } from 'react'
 import { apiLogin } from '@/lib/api'
 import { saveAuth } from '@/lib/auth'
 import Link from 'next/link'
+import { FieldError, fieldClass, isBlank } from '@/lib/form-ui'
+
+type LoginErrors = {
+  username?: string
+  password?: string
+}
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [errors, setErrors] = useState<LoginErrors>({})
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const nextErrors: LoginErrors = {}
+    if (isBlank(username)) nextErrors.username = 'Username is required.'
+    if (isBlank(password)) nextErrors.password = 'Password is required.'
+    else if (password.length < 6) nextErrors.password = 'Password must be at least 6 characters.'
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length) return
+
     setErr(null)
     setLoading(true)
     try {
@@ -31,14 +45,33 @@ export default function LoginPage() {
       <main className="max-w-md mx-auto px-4 py-10">
         <h1 className="text-3xl font-bold mb-6">Sign in</h1>
         {err && <div className="mb-4 text-red-600">{err}</div>}
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} noValidate className="space-y-4">
           <div>
             <label className="block text-sm mb-1">Username</label>
-            <input className="w-full border rounded-md px-3 py-2" value={username} onChange={e=>setUsername(e.target.value)} required />
+            <input
+              className={fieldClass(!!errors.username)}
+              value={username}
+              onChange={e => {
+                const value = e.target.value
+                setUsername(value)
+                setErrors(prev => ({ ...prev, username: isBlank(value) ? prev.username : undefined }))
+              }}
+            />
+            <FieldError error={errors.username} />
           </div>
           <div>
             <label className="block text-sm mb-1">Password</label>
-            <input type="password" className="w-full border rounded-md px-3 py-2" value={password} onChange={e=>setPassword(e.target.value)} required minLength={6} />
+            <input
+              type="password"
+              className={fieldClass(!!errors.password)}
+              value={password}
+              onChange={e => {
+                const value = e.target.value
+                setPassword(value)
+                setErrors(prev => ({ ...prev, password: value.length >= 6 ? undefined : prev.password }))
+              }}
+            />
+            <FieldError error={errors.password} />
           </div>
           <button
             type="submit"
@@ -58,4 +91,3 @@ export default function LoginPage() {
     </div>
   )
 }
-

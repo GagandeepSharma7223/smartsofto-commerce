@@ -168,7 +168,8 @@ function AdminOrdersPageContent() {
                   <tr key={o.id} className="border-t">
                     <td className="px-3 py-2">
                       <div className="font-semibold">{o.orderNumber || `#${o.id}`}</div>
-                      <div className="text-xs text-slate-500">{new Date(o.createdAt || '').toLocaleString()}</div>
+                      <div className="text-xs text-slate-500">Business date {o.orderDate ? new Date(o.orderDate).toLocaleDateString() : '-'}</div>
+                      <div className="text-xs text-slate-500">Created {o.createdAt ? new Date(o.createdAt).toLocaleString() : '-'}</div>
                     </td>
                     <td className="px-3 py-2">
                       <div>{o.clientName || '-'}</div>
