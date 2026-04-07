@@ -18,7 +18,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
         public async Task<InventoryTransaction> AdjustStock(
             int tenantId,
             int productId,
-            int qtyDelta,
+            decimal qtyDelta,
             string reason,
             string? note,
             string? userId,
@@ -42,6 +42,8 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             {
                 throw new InvalidOperationException("Product not found for tenant.");
             }
+
+            ValidateQuantityDelta(product, qtyDelta);
 
             var allowNegativeReason = string.Equals(reason, "Correction", StringComparison.OrdinalIgnoreCase);
             var allowNegativeFinal = allowNegative || allowNegativeReason;
@@ -123,6 +125,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     Quantity = p.Quantity,
                     Price = p.Price,
                     Unit = (int)p.Unit,
+                    IsLooseQuantity = p.IsLooseQuantity,
                     IsActive = p.IsActive
                 })
                 .ToListAsync();
@@ -181,6 +184,14 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     CreatedByUserId = t.CreatedByUserId
                 })
                 .ToListAsync();
+        }
+
+        private static void ValidateQuantityDelta(Product product, decimal qtyDelta)
+        {
+            if (!product.IsLooseQuantity && decimal.Truncate(qtyDelta) != qtyDelta)
+            {
+                throw new InvalidOperationException("This product only allows whole-number quantity adjustments.");
+            }
         }
 
         private static DateTime NormalizeEffectiveDate(DateTime? effectiveDate, string? note, bool allowBackdating)

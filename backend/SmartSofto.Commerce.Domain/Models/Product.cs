@@ -46,7 +46,8 @@ namespace SmartSofto.Commerce.Domain.Models
         public decimal CostPrice { get; set; }
 
         [Required]
-        public int Quantity { get; set; }
+        [Column(TypeName = "decimal(18,3)")]
+        public decimal Quantity { get; set; }
 
         [Required]
         [Column(TypeName = "integer")]
@@ -60,6 +61,8 @@ namespace SmartSofto.Commerce.Domain.Models
 
         [StringLength(256)]
         public string? ImageFileName { get; set; }
+
+        public bool IsLooseQuantity { get; set; }
 
         public bool IsActive { get; set; } = true;
 

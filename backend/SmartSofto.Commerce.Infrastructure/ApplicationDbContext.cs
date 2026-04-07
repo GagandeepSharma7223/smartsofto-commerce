@@ -24,6 +24,8 @@ namespace SmartSofto.Commerce.Infrastructure
         public DbSet<ClientAddress> ClientAddresses { get; set; }
         public DbSet<Tenant> Tenants { get; set; }
         public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
+        public DbSet<ClientAccountTransaction> ClientAccountTransactions { get; set; }
+        public DbSet<OrderAdjustment> OrderAdjustments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -60,7 +62,10 @@ namespace SmartSofto.Commerce.Infrastructure
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Description).HasMaxLength(500);
                 entity.Property(e => e.Price).HasPrecision(18, 2);
+                entity.Property(e => e.CostPrice).HasPrecision(18, 2);
+                entity.Property(e => e.Quantity).HasPrecision(18, 3);
                 entity.Property(e => e.ImageFileName).HasMaxLength(256);
+                entity.Property(e => e.IsLooseQuantity).HasDefaultValue(false);
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.TenantId).HasDefaultValue(1);
@@ -71,8 +76,10 @@ namespace SmartSofto.Commerce.Infrastructure
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Email).HasMaxLength(100);
                 entity.Property(e => e.PhoneNumber).HasMaxLength(20);
+                entity.Property(e => e.NormalizedPhone).HasMaxLength(32);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.TenantId).HasDefaultValue(1);
+                entity.HasIndex(e => new { e.TenantId, e.NormalizedPhone }).IsUnique();
             });
 
             builder.Entity<Plant>(entity =>
@@ -93,8 +100,11 @@ namespace SmartSofto.Commerce.Infrastructure
             builder.Entity<Order>(entity =>
             {
                 entity.Property(e => e.OrderNumber).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Quantity).HasPrecision(18, 3);
                 entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
                 entity.Property(e => e.TotalAmount).HasPrecision(18, 2);
+                entity.Property(e => e.AmountPaid).HasPrecision(18, 2);
+                entity.Property(e => e.AppliedCreditAmount).HasPrecision(18, 2);
                 entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.ShippingName).HasMaxLength(100);
                 entity.Property(e => e.ShippingPhone).HasMaxLength(20);
@@ -107,10 +117,16 @@ namespace SmartSofto.Commerce.Infrastructure
                 entity.Property(e => e.OrderDate).HasColumnType("date");
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.TenantId).HasDefaultValue(1);
+
+                entity.HasMany(e => e.Adjustments)
+                    .WithOne(e => e.Order)
+                    .HasForeignKey(e => e.OrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             builder.Entity<OrderItem>(entity =>
             {
+                entity.Property(e => e.Quantity).HasPrecision(18, 3);
                 entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
                 entity.Property(e => e.DiscountAmount).HasPrecision(18, 2).HasDefaultValue(0m);
                 entity.Property(e => e.TenantId).HasDefaultValue(1);
@@ -194,6 +210,7 @@ namespace SmartSofto.Commerce.Infrastructure
                     IsActive = true
                 });            builder.Entity<InventoryTransaction>(entity =>
             {
+                entity.Property(e => e.QuantityDelta).HasPrecision(18, 3);
                 entity.Property(e => e.Reason).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.ReferenceType).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.ReferenceId).HasMaxLength(100);
@@ -213,6 +230,59 @@ namespace SmartSofto.Commerce.Infrastructure
                 entity.HasOne<ApplicationUser>()
                     .WithMany()
                     .HasForeignKey(e => e.CreatedByUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne<Tenant>()
+                    .WithMany()
+                    .HasForeignKey(e => e.TenantId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            builder.Entity<ClientAccountTransaction>(entity =>
+            {
+                entity.Property(e => e.Amount).HasPrecision(18, 2);
+                entity.Property(e => e.ReferenceType).HasMaxLength(50).IsRequired();
+                entity.Property(e => e.ReferenceId).HasMaxLength(100);
+                entity.Property(e => e.ReferenceNumber).HasMaxLength(100);
+                entity.Property(e => e.Note).HasColumnType("text");
+                entity.Property(e => e.EffectiveDate).HasColumnType("date");
+                entity.Property(e => e.CreatedUtc).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.TenantId).HasDefaultValue(1);
+
+                entity.HasIndex(e => new { e.TenantId, e.ClientId, e.EffectiveDate });
+                entity.HasIndex(e => new { e.TenantId, e.ClientId, e.CreatedUtc }).IsDescending(false, false, true);
+
+                entity.HasOne(e => e.Client)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClientId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne<Tenant>()
+                    .WithMany()
+                    .HasForeignKey(e => e.TenantId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+
+            builder.Entity<OrderAdjustment>(entity =>
+            {
+                entity.Property(e => e.Amount).HasPrecision(18, 2);
+                entity.Property(e => e.Type).HasColumnType("integer");
+                entity.Property(e => e.Reason).HasMaxLength(200).IsRequired();
+                entity.Property(e => e.Note).HasColumnType("text");
+                entity.Property(e => e.CreatedUtc).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.TenantId).HasDefaultValue(1);
+
+                entity.HasIndex(e => new { e.TenantId, e.OrderId, e.CreatedUtc }).IsDescending(false, false, true);
+
+                entity.HasOne(e => e.Order)
+                    .WithMany(e => e.Adjustments)
+                    .HasForeignKey(e => e.OrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Invoice)
+                    .WithMany()
+                    .HasForeignKey(e => e.InvoiceId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne<Tenant>()

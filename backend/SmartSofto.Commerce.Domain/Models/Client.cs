@@ -26,6 +26,9 @@ namespace SmartSofto.Commerce.Domain.Models
         [RegularExpression(@"^\+?[0-9\s()\-]+$", ErrorMessage = "Invalid phone number format")]
         public string? PhoneNumber { get; set; }
 
+        [StringLength(32)]
+        public string? NormalizedPhone { get; set; }
+
         [Required]
         [StringLength(20)]
         public string ClientType { get; set; } = "Regular"; // Regular, VIP, Wholesale, etc.

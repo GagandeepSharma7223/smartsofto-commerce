@@ -38,7 +38,7 @@ namespace SmartSofto.Commerce.Api.Controllers
         public class InventoryAdjustRequest
         {
             public int ProductId { get; set; }
-            public int QtyDelta { get; set; }
+            public decimal QtyDelta { get; set; }
             public string Reason { get; set; } = string.Empty;
             public string? Note { get; set; }
             public DateTime? EffectiveDate { get; set; }

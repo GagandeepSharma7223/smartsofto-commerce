@@ -12,6 +12,7 @@ import {
   apiGetInvoicesForOrder,
   apiAdminClientAddresses,
   apiAdminCreateClientAddress,
+  apiAdminClientCreditBalance,
   type AdminClient,
   type AdminProduct,
   type AdminPriceResponse,
@@ -28,6 +29,7 @@ type OrderLine = {
   quantity: number
   unitPrice: number
   discountAmount: number
+  isLooseQuantity: boolean
 }
 
 type OrderFormErrors = {
@@ -39,6 +41,7 @@ type OrderFormErrors = {
   paymentMethod?: string
   paymentAmount?: string
   paymentDate?: string
+  applyCreditAmount?: string
 }
 
 const ORDER_STATUS_OPTIONS = [
@@ -108,6 +111,8 @@ export default function AdminNewOrderPage() {
   const [paymentMethod, setPaymentMethod] = useState('1')
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentDate, setPaymentDate] = useState(() => todayInput())
+  const [applyCreditAmount, setApplyCreditAmount] = useState('')
+  const [availableCredit, setAvailableCredit] = useState(0)
 
   const [addresses, setAddresses] = useState<ClientAddress[]>([])
   const [addressLoading, setAddressLoading] = useState(false)
@@ -148,11 +153,16 @@ export default function AdminNewOrderPage() {
   useEffect(() => {
     if (clientId) {
       loadAddresses(Number(clientId))
+      apiAdminClientCreditBalance(Number(clientId), token)
+        .then((balance) => setAvailableCredit(Number(balance.availableCredit || 0)))
+        .catch(() => setAvailableCredit(0))
     } else {
       setAddresses([])
       setSelectedAddressId('')
+      setAvailableCredit(0)
+      setApplyCreditAmount('')
     }
-  }, [clientId, loadAddresses])
+  }, [clientId, loadAddresses, token])
 
   const recalcPricing = useCallback(async () => {
     if (!lines.length) {
@@ -191,6 +201,7 @@ export default function AdminNewOrderPage() {
   const backdatedOrderDays = isBackdatedOrder ? daysBetween(orderDate, todayInput()) : 0
   const orderDateTooOld = isBackdatedOrder && backdatedOrderDays > 7
   const paymentAmountValue = Number(paymentAmount || 0)
+  const applyCreditAmountValue = Number(applyCreditAmount || 0)
   const hasInitialPayment = Number.isFinite(paymentAmountValue) && paymentAmountValue > 0
   const isBackdatedPayment = paymentDate < todayInput()
   const paymentDateTooOld = isBackdatedPayment && daysBetween(paymentDate, todayInput()) > 7
@@ -240,7 +251,7 @@ export default function AdminNewOrderPage() {
     setLines(prev => {
       const existing = prev.find(l => l.productId === p.id)
       if (existing) {
-        return prev.map(l => l.productId === p.id ? { ...l, quantity: l.quantity + 1 } : l)
+        return prev.map(l => l.productId === p.id ? { ...l, quantity: l.isLooseQuantity ? roundLooseQuantity(l.quantity + quantityStep(l)) : l.quantity + quantityStep(l) } : l)
       }
       return [
         ...prev,
@@ -250,7 +261,8 @@ export default function AdminNewOrderPage() {
           price: p.price,
           quantity: 1,
           unitPrice: p.price,
-          discountAmount: 0
+          discountAmount: 0,
+          isLooseQuantity: Boolean(p.isLooseQuantity)
         }
       ]
     })
@@ -261,11 +273,19 @@ export default function AdminNewOrderPage() {
   }
 
   const updateQty = (productId: number, quantity: number) => {
+    const line = lines.find((item) => item.productId === productId)
+    if (!line) return
+
     if (quantity <= 0) {
       setLines(prev => prev.filter(l => l.productId !== productId))
       return
     }
-    updateLine(productId, { quantity })
+
+    if (!line.isLooseQuantity && !Number.isInteger(quantity)) {
+      return
+    }
+
+    updateLine(productId, { quantity: line.isLooseQuantity ? roundLooseQuantity(quantity) : quantity })
   }
 
   const removeLine = (productId: number) => {
@@ -279,6 +299,7 @@ export default function AdminNewOrderPage() {
     const nextErrors: OrderFormErrors = {}
     if (!selectedClient) nextErrors.clientId = 'Please select a client.'
     if (!lines.length) nextErrors.items = 'Please add at least one product.'
+    else if (lines.some((line) => line.quantity <= 0 || (!line.isLooseQuantity && !Number.isInteger(line.quantity)))) nextErrors.items = 'Check item quantities. Whole-number products cannot use decimal quantities.'
     if (!selectedAddressId) nextErrors.selectedAddressId = 'Please select a shipping address.'
     if (!orderDate) {
       nextErrors.orderDate = 'Order date is required.'
@@ -307,6 +328,13 @@ export default function AdminNewOrderPage() {
       if ((isBackdatedOrder || isBackdatedPayment) && !notes.trim()) {
         nextErrors.notes = 'Backdated orders or payments require a note.'
       }
+    }
+    if (applyCreditAmountValue < 0) {
+      nextErrors.applyCreditAmount = 'Applied credit cannot be negative.'
+    } else if (applyCreditAmountValue > availableCredit) {
+      nextErrors.applyCreditAmount = `Applied credit cannot exceed available client credit of ${formatInr(availableCredit)}.`
+    } else if (applyCreditAmountValue + paymentAmountValue > total) {
+      nextErrors.applyCreditAmount = `Combined payment and credit cannot exceed order total of ${formatInr(total)}.`
     }
 
     setFormErrors(nextErrors)
@@ -338,6 +366,9 @@ export default function AdminNewOrderPage() {
         paymentMethod: Number(paymentMethod),
         paymentAmount: paymentAmountValue,
         paymentDate
+      } : {}),
+      ...(applyCreditAmountValue > 0 ? {
+        applyCreditAmount: applyCreditAmountValue
       } : {})
     }
 
@@ -475,9 +506,10 @@ export default function AdminNewOrderPage() {
             </div>
             <FieldError error={formErrors.clientId} />
             {selectedClient && (
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-slate-600 space-y-1">
                 <div>Email: {selectedClient.email || '-'}</div>
                 <div>Phone: {selectedClient.phoneNumber || '-'}</div>
+                <div>Available credit: <span className="font-medium text-slate-900">{formatInr(availableCredit)}</span></div>
               </div>
             )}
           </div>
@@ -580,8 +612,8 @@ export default function AdminNewOrderPage() {
               </select>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-              <div className="font-medium text-slate-900">Payment</div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="font-medium text-slate-900">Payment & Credit</div>
+              <div className="grid gap-3 sm:grid-cols-4">
                 <div>
                   <label className="block text-sm mb-1">Payment Method</label>
                   <select
@@ -639,10 +671,35 @@ export default function AdminNewOrderPage() {
                   />
                   <FieldError error={formErrors.paymentDate} />
                 </div>
+                <div>
+                  <label className="block text-sm mb-1">Apply Credit</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max={availableCredit}
+                    className={fieldClass(!!formErrors.applyCreditAmount)}
+                    placeholder="0.00"
+                    value={applyCreditAmount}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setApplyCreditAmount(value)
+                      const numeric = Number(value || 0)
+                      setFormErrors((prev) => ({
+                        ...prev,
+                        applyCreditAmount: !value || (!Number.isNaN(numeric) && numeric >= 0 && numeric <= availableCredit) ? undefined : prev.applyCreditAmount
+                      }))
+                    }}
+                  />
+                  <FieldError error={formErrors.applyCreditAmount} />
+                  <div className="mt-1 text-xs text-slate-500">Available: {formatInr(availableCredit)}</div>
+                </div>
               </div>
               <div className="grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
                 <div>Recorded payment: <span className="font-medium text-slate-900">{formatInr(hasInitialPayment ? paymentAmountValue : 0)}</span></div>
-                <div>Calculated invoice status: <span className="font-medium text-slate-900">{paymentAmountValue <= 0 ? 'Unpaid' : paymentAmountValue >= total ? 'Paid' : 'Partially Paid'}</span></div>
+                <div>Applied credit: <span className="font-medium text-slate-900">{formatInr(applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)}</span></div>
+                <div>Settled on create: <span className="font-medium text-slate-900">{formatInr((hasInitialPayment ? paymentAmountValue : 0) + (applyCreditAmountValue > 0 ? applyCreditAmountValue : 0))}</span></div>
+                <div>Calculated invoice status: <span className="font-medium text-slate-900">{(paymentAmountValue + applyCreditAmountValue) <= 0 ? 'Unpaid' : (paymentAmountValue + applyCreditAmountValue) >= total ? 'Paid' : 'Partially Paid'}</span></div>
               </div>
             </div>
             <div>
@@ -694,7 +751,7 @@ export default function AdminNewOrderPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="font-medium text-slate-900">{p.name}</div>
-                            <div className="text-xs text-slate-500">SKU {p.sku || '-'} ? Stock {p.quantity}</div>
+                            <div className="text-xs text-slate-500">SKU {p.sku || '-'} - Stock {formatQuantity(p.quantity)}{p.isLooseQuantity ? ' - loose' : ''}</div>
                           </div>
                           <span className="text-xs font-medium text-[#2B7CBF]">Add</span>
                         </div>
@@ -705,7 +762,7 @@ export default function AdminNewOrderPage() {
               )}
             </div>
             {lines.length > 0 && (
-              <div className="text-xs text-slate-500">Selected items appear in the order table below.</div>
+              <div className="text-xs text-slate-500">Selected items appear in the order table below. Loose-quantity products support up to 3 decimal places.</div>
             )}
           </div>
 
@@ -732,7 +789,10 @@ export default function AdminNewOrderPage() {
                       const lineTotal = lineTotals.get(l.productId) ?? (l.unitPrice * l.quantity - l.discountAmount)
                       return (
                         <tr key={l.productId} className="border-t">
-                          <td className="py-2">{l.name}</td>
+                          <td className="py-2">
+                            <div>{l.name}</div>
+                            {l.isLooseQuantity && <div className="text-xs text-slate-500">Loose quantity</div>}
+                          </td>
                           <td className="py-2 text-right">
                             <input
                               type="number"
@@ -755,13 +815,16 @@ export default function AdminNewOrderPage() {
                           </td>
                           <td className="py-2 text-right">
                             <div className="inline-flex items-center border rounded-md overflow-hidden">
-                              <button type="button" className="px-2 py-1" onClick={() => updateQty(l.productId, l.quantity - 1)}>-</button>
+                              <button type="button" className="px-2 py-1" onClick={() => updateQty(l.productId, l.quantity - quantityStep(l))}>-</button>
                               <input
-                                className="w-12 text-center border-l border-r"
+                                type="number"
+                                step={l.isLooseQuantity ? '0.001' : '1'}
+                                min={l.isLooseQuantity ? '0.001' : '1'}
+                                className="w-20 text-center border-l border-r"
                                 value={l.quantity}
                                 onChange={(e) => updateQty(l.productId, Number(e.target.value || 0))}
                               />
-                              <button type="button" className="px-2 py-1" onClick={() => updateQty(l.productId, l.quantity + 1)}>+</button>
+                              <button type="button" className="px-2 py-1" onClick={() => updateQty(l.productId, l.quantity + quantityStep(l))}>+</button>
                             </div>
                           </td>
                           <td className="py-2 text-right">{formatInr(lineTotal)}</td>
@@ -784,6 +847,9 @@ export default function AdminNewOrderPage() {
             <div className="flex items-center justify-between text-sm"><span>Subtotal</span><span>{formatInr(subtotal)}</span></div>
             <div className="flex items-center justify-between text-sm"><span>Discounts</span><span>{formatInr(discountTotal)}</span></div>
             <div className="flex items-center justify-between font-semibold"><span>Total</span><span>{formatInr(total)}</span></div>
+            <div className="flex items-center justify-between text-sm"><span>Applied credit</span><span>{formatInr(applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)}</span></div>
+            <div className="flex items-center justify-between text-sm"><span>Initial cash payment</span><span>{formatInr(hasInitialPayment ? paymentAmountValue : 0)}</span></div>
+            <div className="flex items-center justify-between text-sm"><span>Balance after create</span><span>{formatInr(Math.max(total - ((hasInitialPayment ? paymentAmountValue : 0) + (applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)), 0))}</span></div>
             <button
               type="button"
               className="mt-2 w-full border rounded-md px-3 py-2 text-sm hover:text-[#4DB6E2] hover:border-[#4DB6E2]"
@@ -809,7 +875,7 @@ export default function AdminNewOrderPage() {
           <div className="mx-auto w-full max-w-lg rounded-xl bg-white shadow-xl">
             <div className="px-4 py-3 border-b flex items-center justify-between">
               <div className="font-semibold">Add address</div>
-              <button className="text-slate-500" onClick={() => setShowAddressModal(false)}>Close</button>
+              <button aria-label="Close" className="text-slate-500 text-2xl leading-none" onClick={() => setShowAddressModal(false)}>&times;</button>
             </div>
             <div className="p-4 space-y-3">
               {addressError && <div className="text-red-600 text-sm">{addressError}</div>}
@@ -940,6 +1006,19 @@ function daysBetween(from: string, to: string) {
 function formatClientOption(client: AdminClient) {
   const details = [client.email, client.phoneNumber].filter(Boolean).join(' - ')
   return details ? `${client.name} (${details})` : client.name
+}
+
+
+function quantityStep(line: OrderLine) {
+  return line.isLooseQuantity ? 0.001 : 1
+}
+
+function roundLooseQuantity(value: number) {
+  return Math.round(value * 1000) / 1000
+}
+
+function formatQuantity(value: number) {
+  return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 3 }).format(value)
 }
 
 function formatInr(value: number) {

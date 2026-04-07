@@ -45,7 +45,7 @@ namespace SmartSofto.Commerce.Api.Tests
             var currentUserService = new CurrentUserService(httpContextAccessor);
             var inventoryService = new InventoryService(context);
             var pricingService = new OrderPricingService(context);
-            var orderService = new OrderService(context, inventoryService, pricingService);
+            var orderService = new OrderService(context, inventoryService, pricingService, new ClientAccountService(context));
             var controller = new OrdersController(orderService, tenantService, currentUserService)
             {
                 ControllerContext = new ControllerContext { HttpContext = httpContext }

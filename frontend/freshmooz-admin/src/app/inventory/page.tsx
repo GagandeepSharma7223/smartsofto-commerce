@@ -91,6 +91,8 @@ export default function AdminInventoryPage() {
 
     if (isBlank(qtyValue) || !Number.isFinite(delta) || delta == 0) {
       nextErrors.qtyDelta = 'Enter a quantity delta greater than 0 or less than 0.'
+    } else if (!selected.isLooseQuantity && !Number.isInteger(delta)) {
+      nextErrors.qtyDelta = 'This product only allows whole-number quantity adjustments.'
     }
     if (isBlank(form.reason)) {
       nextErrors.reason = 'Reason is required.'
@@ -190,7 +192,7 @@ export default function AdminInventoryPage() {
                     <div className="font-medium">{item.name}</div>
                     <div className="text-xs text-slate-500">ID {item.productId}</div>
                   </td>
-                  <td className="px-3 py-2 text-right font-semibold">{item.quantity}</td>
+                  <td className="px-3 py-2 text-right font-semibold">{formatQuantity(item.quantity)}</td>
                   <td className="px-3 py-2">{units.get(item.unit) || 'Other'}</td>
                   <td className="px-3 py-2">
                     <Badge tone={item.isActive ? 'green' : 'gray'}>
@@ -248,10 +250,10 @@ export default function AdminInventoryPage() {
             <div className="px-4 py-3 border-b flex items-center justify-between">
               <div>
                 <div className="font-semibold">Adjust stock</div>
-                <div className="text-xs text-slate-500">{selected.name}</div>
+                <div className="text-xs text-slate-500">{selected.name}{selected.isLooseQuantity ? ' - loose quantity enabled' : ''}</div>
               </div>
-              <button className="text-slate-500 hover:text-slate-800" onClick={() => setAdjustOpen(false)}>
-                Close
+              <button aria-label="Close" className="text-slate-500 hover:text-slate-800 text-2xl leading-none" onClick={() => setAdjustOpen(false)}>
+                &times;
               </button>
             </div>
             <form className="p-4 space-y-3" onSubmit={submitAdjust} noValidate>
@@ -259,6 +261,7 @@ export default function AdminInventoryPage() {
                 <label className="block text-sm mb-1">Qty delta</label>
                 <input
                   type="number"
+                  step={selected.isLooseQuantity ? '0.001' : '1'}
                   className={fieldClass(!!formErrors.qtyDelta)}
                   placeholder="e.g. -2 or 5"
                   value={form.qtyDelta}
@@ -267,7 +270,7 @@ export default function AdminInventoryPage() {
                     setForm({ ...form, qtyDelta: value })
                     setFormErrors((prev) => ({
                       ...prev,
-                      qtyDelta: value.trim() && Number.isFinite(Number(value)) && Number(value) !== 0 ? undefined : prev.qtyDelta
+                      qtyDelta: value.trim() && Number.isFinite(Number(value)) && Number(value) !== 0 && (selected.isLooseQuantity || Number.isInteger(Number(value))) ? undefined : prev.qtyDelta
                     }))
                   }}
                 />
@@ -406,3 +409,7 @@ function Badge({ children, tone = 'gray' }: { children: React.ReactNode; tone?: 
 
 
 
+
+function formatQuantity(value: number) {
+  return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 3 }).format(value)
+}

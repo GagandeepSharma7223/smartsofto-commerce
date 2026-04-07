@@ -35,6 +35,9 @@ export function showSuccess(message: string) {
     text: message,
     icon: "success",
     confirmButtonColor: "#6FAF3D",
+    timer: 2200,
+    timerProgressBar: true,
+    showConfirmButton: false,
   })
 }
 

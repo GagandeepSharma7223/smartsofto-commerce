@@ -33,6 +33,8 @@ namespace SmartSofto.Commerce.Infrastructure.Services
 
         public async Task<Product> CreateProductAsync(int tenantId, Product product)
         {
+            ValidateProductQuantity(product);
+
             product.TenantId = tenantId;
             if (product.CreatedAt == default)
             {
@@ -52,6 +54,8 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             {
                 return false;
             }
+
+            ValidateProductQuantity(product);
 
             product.TenantId = tenantId;
             product.UpdatedAt = DateTime.UtcNow;
@@ -119,6 +123,19 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             }
 
             return true;
+        }
+
+        private static void ValidateProductQuantity(Product product)
+        {
+            if (product.Quantity < 0)
+            {
+                throw new InvalidOperationException("Quantity must be 0 or greater.");
+            }
+
+            if (!product.IsLooseQuantity && decimal.Truncate(product.Quantity) != product.Quantity)
+            {
+                throw new InvalidOperationException("Whole-number products must use whole quantities.");
+            }
         }
     }
 }

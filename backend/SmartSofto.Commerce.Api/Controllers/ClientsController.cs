@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartSofto.Commerce.Application.DTOs;
+using SmartSofto.Commerce.Application.Exceptions;
 using SmartSofto.Commerce.Application.Interfaces;
 using SmartSofto.Commerce.Domain.Models;
 
@@ -49,8 +50,15 @@ namespace SmartSofto.Commerce.Api.Controllers
         {
             var tenantId = _tenantService.TenantId;
             if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
-            var created = await _clientService.CreateClientAsync(tenantId.Value, client);
-            return CreatedAtAction(nameof(GetClient), new { id = created.Id }, created);
+            try
+            {
+                var created = await _clientService.CreateClientAsync(tenantId.Value, client);
+                return CreatedAtAction(nameof(GetClient), new { id = created.Id }, created);
+            }
+            catch (BusinessConflictException ex)
+            {
+                return Conflict(ex.Message);
+            }
         }
 
         [Authorize(Roles = "Admin")]
@@ -61,9 +69,16 @@ namespace SmartSofto.Commerce.Api.Controllers
             if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
             if (id != client.Id) return BadRequest();
 
-            var updated = await _clientService.UpdateClientAsync(tenantId.Value, client);
-            if (!updated) return NotFound();
-            return NoContent();
+            try
+            {
+                var updated = await _clientService.UpdateClientAsync(tenantId.Value, client);
+                if (!updated) return NotFound();
+                return NoContent();
+            }
+            catch (BusinessConflictException ex)
+            {
+                return Conflict(ex.Message);
+            }
         }
 
         [Authorize(Roles = "Admin")]
@@ -166,8 +181,15 @@ namespace SmartSofto.Commerce.Api.Controllers
             if (string.IsNullOrEmpty(_currentUser.UserId)) return Unauthorized();
             var tenantId = _tenantService.TenantId;
             if (!tenantId.HasValue) return Unauthorized();
-            var profile = await _clientService.UpsertMyProfileAsync(tenantId.Value, _currentUser.UserId, dto);
-            return Ok(profile);
+            try
+            {
+                var profile = await _clientService.UpsertMyProfileAsync(tenantId.Value, _currentUser.UserId, dto);
+                return Ok(profile);
+            }
+            catch (BusinessConflictException ex)
+            {
+                return Conflict(ex.Message);
+            }
         }
 
         // Saved Addresses

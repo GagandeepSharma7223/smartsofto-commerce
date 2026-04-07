@@ -23,7 +23,7 @@ namespace SmartSofto.Commerce.Infrastructure.Tests
 
             var inventoryService = new InventoryService(context);
             var pricingService = new OrderPricingService(context);
-            return (context, new OrderService(context, inventoryService, pricingService));
+            return (context, new OrderService(context, inventoryService, pricingService, new ClientAccountService(context)));
         }
 
         [Fact]

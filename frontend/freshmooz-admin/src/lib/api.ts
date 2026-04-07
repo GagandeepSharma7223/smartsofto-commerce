@@ -233,6 +233,7 @@ export async function apiCreateProduct(payload: {
   type: number
   unit: number
   imageFileName?: string
+  isLooseQuantity?: boolean
 }, token?: string) {
   const url = resolveUrl('/api/Products')
   const res = await fetch(url, {
@@ -250,7 +251,8 @@ export async function apiCreateProduct(payload: {
       quantity: payload.quantity,
       type: payload.type,
       unit: payload.unit,
-      imageFileName: payload.imageFileName || null
+      imageFileName: payload.imageFileName || null,
+      isLooseQuantity: Boolean(payload.isLooseQuantity)
     })
   })
   if (!res.ok) throw new Error('Failed to create product')
@@ -331,6 +333,7 @@ export type AdminProduct = {
   quantity: number
   imageFileName?: string
   unit?: number
+  isLooseQuantity?: boolean
 }
 
 export async function apiAdminProducts(token?: string): Promise<AdminProduct[]> {
@@ -350,7 +353,8 @@ export async function apiAdminProducts(token?: string): Promise<AdminProduct[]> 
     price: Number(p.price ?? p.Price ?? 0),
     quantity: Number(p.quantity ?? p.Quantity ?? 0),
     imageFileName: p.imageFileName ?? p.ImageFileName ?? undefined,
-    unit: p.unit ?? p.Unit ?? undefined
+    unit: p.unit ?? p.Unit ?? undefined,
+    isLooseQuantity: Boolean(p.isLooseQuantity ?? p.IsLooseQuantity ?? false)
   }))
 }
 
@@ -375,6 +379,7 @@ export type AdminCreateOrderPayload = {
   paymentMethod?: number
   paymentAmount?: number
   paymentDate?: string
+  applyCreditAmount?: number
 }
 
 export async function apiAdminPriceOrder(items: AdminPriceLine[], token?: string): Promise<AdminPriceResponse> {
@@ -434,10 +439,15 @@ export type AdminOrder = {
   quantity: number
   unitPrice: number
   totalAmount: number
+  adjustmentTotal?: number
+  adjustedTotalAmount?: number
+  adjustmentCount?: number
   status: string
   paymentMethod?: string
   invoiceStatus?: string
   amountPaid?: number
+  appliedCreditAmount?: number
+  settledAmount?: number
   createdAt?: string
   updatedAt?: string
   remainingAmount?: number
@@ -490,10 +500,15 @@ export async function apiAdminOrders(status?: string): Promise<AdminOrder[]> {
     quantity: Number(o.quantity ?? o.Quantity ?? 0),
     unitPrice: Number(o.unitPrice ?? o.UnitPrice ?? 0),
     totalAmount: Number(o.totalAmount ?? o.TotalAmount ?? 0),
+    adjustmentTotal: Number(o.adjustmentTotal ?? o.AdjustmentTotal ?? 0),
+    adjustedTotalAmount: Number(o.adjustedTotalAmount ?? o.AdjustedTotalAmount ?? (o.totalAmount ?? o.TotalAmount ?? 0)),
+    adjustmentCount: Number(o.adjustmentCount ?? o.AdjustmentCount ?? 0),
     status: toLabel(o.status ?? o.Status, ORDER_STATUS_LABELS, 'Pending'),
     paymentMethod: toLabel(o.paymentMethod ?? o.PaymentMethod, PAYMENT_METHOD_LABELS, '-'),
     invoiceStatus: toLabel(o.invoiceStatus ?? o.InvoiceStatus, INVOICE_STATUS_LABELS, 'Unpaid'),
     amountPaid: Number(o.amountPaid ?? o.AmountPaid ?? 0),
+    appliedCreditAmount: Number(o.appliedCreditAmount ?? o.AppliedCreditAmount ?? 0),
+    settledAmount: Number(o.settledAmount ?? o.SettledAmount ?? ((o.amountPaid ?? o.AmountPaid ?? 0) + (o.appliedCreditAmount ?? o.AppliedCreditAmount ?? 0))),
     orderDate: o.orderDate ?? o.OrderDate ?? undefined,
     createdAt: o.createdAt ?? o.CreatedAt ?? undefined,
     updatedAt: o.updatedAt ?? o.UpdatedAt ?? undefined,
@@ -522,6 +537,138 @@ export async function apiAdminUpdateOrderStatus(id: number, status: string, toke
   return res.json()
 }
 
+export type AdminOrderDetailItem = {
+  id: number
+  productId: number
+  productName?: string
+  sku?: string
+  quantity: number
+  unitPrice: number
+  discountAmount: number
+  lineTotal: number
+}
+
+export type AdminOrderPayment = {
+  invoiceId: number
+  invoiceNumber: string
+  amount: number
+  paymentMethod: number
+  status: number
+  referenceNumber?: string
+  note?: string
+  invoiceDate?: string
+  createdAt?: string
+}
+
+export type AdminOrderDetailAdjustment = {
+  id: number
+  invoiceId?: number
+  invoiceNumber?: string
+  type: string
+  amount: number
+  reason: string
+  note?: string
+  createdUtc?: string
+}
+
+export type AdminOrderDetail = {
+  id: number
+  orderNumber: string
+  orderDate?: string
+  createdAt?: string
+  updatedAt?: string
+  status: string
+  notes?: string
+  clientId: number
+  clientName?: string
+  clientEmail?: string
+  clientPhone?: string
+  shippingAddress?: ClientAddressInput | null
+  billingAddress?: ClientAddressInput | null
+  items: AdminOrderDetailItem[]
+  totalAmount: number
+  adjustmentTotal: number
+  adjustedTotalAmount: number
+  amountPaid: number
+  appliedCreditAmount: number
+  settledAmount: number
+  balanceDue: number
+  invoiceId?: number
+  invoiceNumber?: string
+  invoiceDate?: string
+  invoiceStatus: string
+  paymentMethod?: string
+  payments: AdminOrderPayment[]
+  adjustments: AdminOrderDetailAdjustment[]
+}
+
+export async function apiAdminOrderDetails(id: number, token?: string): Promise<AdminOrderDetail> {
+  const res = await fetch(resolveUrl(`/api/Orders/${id}`), {
+    cache: 'no-store',
+    headers: authHeaders(token)
+  })
+  if (!res.ok) throw new Error('Failed to load order details')
+  const o = await res.json()
+  return {
+    id: Number(o.id ?? o.Id),
+    orderNumber: String(o.orderNumber ?? o.OrderNumber ?? ''),
+    orderDate: o.orderDate ?? o.OrderDate ?? undefined,
+    createdAt: o.createdAt ?? o.CreatedAt ?? undefined,
+    updatedAt: o.updatedAt ?? o.UpdatedAt ?? undefined,
+    status: toLabel(o.status ?? o.Status, ORDER_STATUS_LABELS, 'Pending'),
+    notes: o.notes ?? o.Notes ?? undefined,
+    clientId: Number(o.clientId ?? o.ClientId ?? 0),
+    clientName: o.clientName ?? o.ClientName ?? undefined,
+    clientEmail: o.clientEmail ?? o.ClientEmail ?? undefined,
+    clientPhone: o.clientPhone ?? o.ClientPhone ?? undefined,
+    shippingAddress: o.shippingAddress ?? o.ShippingAddress ?? null,
+    billingAddress: o.billingAddress ?? o.BillingAddress ?? null,
+    items: (o.items ?? o.Items ?? []).map((item: any) => ({
+      id: Number(item.id ?? item.Id ?? 0),
+      productId: Number(item.productId ?? item.ProductId ?? 0),
+      productName: item.productName ?? item.ProductName ?? undefined,
+      sku: item.sku ?? item.Sku ?? item.SKU ?? undefined,
+      quantity: Number(item.quantity ?? item.Quantity ?? 0),
+      unitPrice: Number(item.unitPrice ?? item.UnitPrice ?? 0),
+      discountAmount: Number(item.discountAmount ?? item.DiscountAmount ?? 0),
+      lineTotal: Number(item.lineTotal ?? item.LineTotal ?? 0),
+    })),
+    totalAmount: Number(o.totalAmount ?? o.TotalAmount ?? 0),
+    adjustmentTotal: Number(o.adjustmentTotal ?? o.AdjustmentTotal ?? 0),
+    adjustedTotalAmount: Number(o.adjustedTotalAmount ?? o.AdjustedTotalAmount ?? o.totalAmount ?? o.TotalAmount ?? 0),
+    amountPaid: Number(o.amountPaid ?? o.AmountPaid ?? 0),
+    appliedCreditAmount: Number(o.appliedCreditAmount ?? o.AppliedCreditAmount ?? 0),
+    settledAmount: Number(o.settledAmount ?? o.SettledAmount ?? 0),
+    balanceDue: Number(o.balanceDue ?? o.BalanceDue ?? 0),
+    invoiceId: o.invoiceId ?? o.InvoiceId ?? undefined,
+    invoiceNumber: o.invoiceNumber ?? o.InvoiceNumber ?? undefined,
+    invoiceDate: o.invoiceDate ?? o.InvoiceDate ?? undefined,
+    invoiceStatus: toLabel(o.invoiceStatus ?? o.InvoiceStatus, INVOICE_STATUS_LABELS, 'Unpaid'),
+    paymentMethod: toLabel(o.paymentMethod ?? o.PaymentMethod, PAYMENT_METHOD_LABELS, '-'),
+    payments: (o.payments ?? o.Payments ?? []).map((p: any) => ({
+      invoiceId: Number(p.invoiceId ?? p.InvoiceId ?? 0),
+      invoiceNumber: String(p.invoiceNumber ?? p.InvoiceNumber ?? ''),
+      amount: Number(p.amount ?? p.Amount ?? 0),
+      paymentMethod: Number(p.paymentMethod ?? p.PaymentMethod ?? 0),
+      status: Number(p.status ?? p.Status ?? 0),
+      referenceNumber: p.referenceNumber ?? p.ReferenceNumber ?? undefined,
+      note: p.note ?? p.Note ?? undefined,
+      invoiceDate: p.invoiceDate ?? p.InvoiceDate ?? undefined,
+      createdAt: p.createdAt ?? p.CreatedAt ?? undefined,
+    })),
+    adjustments: (o.adjustments ?? o.Adjustments ?? []).map((a: any) => ({
+      id: Number(a.id ?? a.Id ?? 0),
+      invoiceId: a.invoiceId ?? a.InvoiceId ?? undefined,
+      invoiceNumber: a.invoiceNumber ?? a.InvoiceNumber ?? undefined,
+      type: String(a.type ?? a.Type ?? ''),
+      amount: Number(a.amount ?? a.Amount ?? 0),
+      reason: a.reason ?? a.Reason ?? '',
+      note: a.note ?? a.Note ?? undefined,
+      createdUtc: a.createdUtc ?? a.CreatedUtc ?? undefined,
+    })),
+  }
+}
+
 export type AdminInvoice = {
   id: number
   invoiceNumber: string
@@ -536,7 +683,12 @@ export type AdminInvoice = {
   createdAt?: string
   updatedAt?: string
   orderTotalAmount?: number
+  orderAdjustmentTotal?: number
+  orderAdjustedTotalAmount?: number
+  orderAdjustmentCount?: number
   orderAmountPaid?: number
+  orderAppliedCreditAmount?: number
+  orderSettledAmount?: number
   orderInvoiceStatus?: number
 }
 
@@ -574,6 +726,82 @@ export async function apiAdminCreateInvoice(input: {
   return res.json()
 }
 
+
+export type OrderAdjustment = {
+  id: number
+  orderId: number
+  invoiceId?: number
+  invoiceNumber?: string
+  tenantId: number
+  type: string
+  amount: number
+  reason: string
+  note?: string | null
+  createdUtc: string
+}
+
+export type CreateOrderAdjustmentPayload = {
+  amount: number
+  type?: number
+  reason: string
+  note?: string
+}
+
+const ORDER_ADJUSTMENT_LABELS: Record<number, string> = {
+  1: 'Discount',
+  2: 'Credit Note',
+  3: 'Adjustment'
+}
+
+export async function apiAdminOrderAdjustments(orderId: number, token?: string): Promise<OrderAdjustment[]> {
+  const res = await fetch(resolveUrl(`/api/admin/orders/${orderId}/adjustments`), {
+    cache: 'no-store',
+    headers: authHeaders(token)
+  })
+  if (!res.ok) throw new Error('Failed to load order adjustments')
+  const data = await res.json()
+  return (data || []).map((a: any) => ({
+    id: Number(a.id ?? a.Id),
+    orderId: Number(a.orderId ?? a.OrderId),
+    invoiceId: a.invoiceId ?? a.InvoiceId ?? undefined,
+    invoiceNumber: a.invoiceNumber ?? a.InvoiceNumber ?? undefined,
+    tenantId: Number(a.tenantId ?? a.TenantId ?? 0),
+    type: toLabel(a.type ?? a.Type, ORDER_ADJUSTMENT_LABELS, 'Discount'),
+    amount: Number(a.amount ?? a.Amount ?? 0),
+    reason: a.reason ?? a.Reason ?? '',
+    note: a.note ?? a.Note ?? undefined,
+    createdUtc: a.createdUtc ?? a.CreatedUtc ?? ''
+  }))
+}
+
+export async function apiAdminCreateOrderAdjustment(orderId: number, input: CreateOrderAdjustmentPayload, token?: string): Promise<OrderAdjustment> {
+  const res = await fetch(resolveUrl(`/api/admin/orders/${orderId}/adjustments`), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(token)
+    },
+    body: JSON.stringify(input)
+  })
+  if (!res.ok) {
+    const message = await res.text().catch(() => '')
+    throw new Error(message || 'Failed to create order adjustment')
+  }
+  const a = await res.json()
+  return {
+    id: Number(a.id ?? a.Id),
+    orderId: Number(a.orderId ?? a.OrderId),
+    invoiceId: a.invoiceId ?? a.InvoiceId ?? undefined,
+    invoiceNumber: a.invoiceNumber ?? a.InvoiceNumber ?? undefined,
+    tenantId: Number(a.tenantId ?? a.TenantId ?? 0),
+    type: toLabel(a.type ?? a.Type, ORDER_ADJUSTMENT_LABELS, 'Discount'),
+    amount: Number(a.amount ?? a.Amount ?? 0),
+    reason: a.reason ?? a.Reason ?? '',
+    note: a.note ?? a.Note ?? undefined,
+    createdUtc: a.createdUtc ?? a.CreatedUtc ?? ''
+  }
+}
+
 export type AdminMonthlyPoint = { month: number; total: number }
 
 export async function apiAdminMonthlyRevenue(year: number): Promise<AdminMonthlyPoint[]> {
@@ -602,6 +830,7 @@ export type AdminInventoryItem = {
   quantity: number
   price: number
   unit: number
+  isLooseQuantity: boolean
   isActive: boolean
 }
 
@@ -878,7 +1107,10 @@ export async function apiAdminCreateClient(input: Partial<AdminClient>, token?: 
     },
     body: JSON.stringify(input)
   })
-  if (!res.ok) throw new Error('Failed to create client')
+  if (!res.ok) {
+    const message = await res.text().catch(() => '')
+    throw new Error(message || 'Failed to create client')
+  }
   return res.json()
 }
 
@@ -891,7 +1123,10 @@ export async function apiAdminUpdateClient(id: number, input: AdminClient, token
     },
     body: JSON.stringify(input)
   })
-  if (!res.ok) throw new Error('Failed to update client')
+  if (!res.ok) {
+    const message = await res.text().catch(() => '')
+    throw new Error(message || 'Failed to update client')
+  }
 }
 
 
@@ -916,6 +1151,92 @@ export async function apiAdminDeleteClient(id: number, token?: string): Promise<
     const message = await res.text().catch(() => '')
     throw new Error(message || 'Failed to delete client')
   }
+}
+
+export type ClientCreditBalance = {
+  clientId: number
+  clientName?: string
+  availableCredit: number
+}
+
+export async function apiAdminClientCreditBalances(token?: string): Promise<ClientCreditBalance[]> {
+  const res = await fetch(resolveUrl('/api/admin/clients/credit-balances'), {
+    cache: 'no-store',
+    headers: authHeaders(token)
+  })
+  if (!res.ok) throw new Error('Failed to load client credit balances')
+  return res.json()
+}
+
+export async function apiAdminClientCreditBalance(clientId: number, token?: string): Promise<ClientCreditBalance> {
+  const res = await fetch(resolveUrl(`/api/admin/clients/${clientId}/credit-balance`), {
+    cache: 'no-store',
+    headers: authHeaders(token)
+  })
+  if (!res.ok) throw new Error('Failed to load client credit balance')
+  return res.json()
+}
+
+export type ClientAdvancePaymentPayload = {
+  amount: number
+  paymentMethod: number
+  referenceNumber?: string
+  note?: string
+  effectiveDate?: string
+}
+
+export type ClientAccountTransaction = {
+  id: number
+  clientId: number
+  tenantId: number
+  type: number
+  amount: number
+  paymentMethod?: number
+  referenceType: string
+  referenceId?: string
+  referenceNumber?: string
+  note?: string
+  effectiveDate: string
+  createdUtc: string
+}
+
+export async function apiAdminClientCreditLedger(clientId: number, token?: string): Promise<ClientAccountTransaction[]> {
+  const res = await fetch(resolveUrl(`/api/admin/clients/${clientId}/credit-ledger`), {
+    cache: 'no-store',
+    headers: authHeaders(token)
+  })
+  if (!res.ok) throw new Error('Failed to load client credit ledger')
+  const rows = await res.json()
+  return (rows || []).map((item: any) => ({
+    id: Number(item.id ?? item.Id ?? 0),
+    clientId: Number(item.clientId ?? item.ClientId ?? 0),
+    tenantId: Number(item.tenantId ?? item.TenantId ?? 0),
+    type: Number(item.type ?? item.Type ?? 0),
+    amount: Number(item.amount ?? item.Amount ?? 0),
+    paymentMethod: item.paymentMethod ?? item.PaymentMethod ?? undefined,
+    referenceType: item.referenceType ?? item.ReferenceType ?? '',
+    referenceId: item.referenceId ?? item.ReferenceId ?? undefined,
+    referenceNumber: item.referenceNumber ?? item.ReferenceNumber ?? undefined,
+    note: item.note ?? item.Note ?? undefined,
+    effectiveDate: item.effectiveDate ?? item.EffectiveDate ?? '',
+    createdUtc: item.createdUtc ?? item.CreatedUtc ?? ''
+  }))
+}
+
+export async function apiAdminRecordAdvancePayment(clientId: number, payload: ClientAdvancePaymentPayload, token?: string) {
+  const res = await fetch(resolveUrl(`/api/admin/clients/${clientId}/advance-payments`), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(token)
+    },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) {
+    const message = await res.text().catch(() => '')
+    throw new Error(message || 'Failed to record advance payment')
+  }
+  return res.json()
 }
 
 // Orders

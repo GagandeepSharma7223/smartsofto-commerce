@@ -12,5 +12,11 @@ namespace SmartSofto.Commerce.Application.Interfaces
         Task<AdminInvoiceCreateResultDto> CreateInvoiceAsync(int tenantId, AdminCreateInvoiceRequest request);
         Task<IReadOnlyList<AdminMonthlyRevenueDto>> GetMonthlyRevenueAsync(int tenantId, int year);
         Task<AdminTotalRevenueDto> GetTotalForRangeAsync(int tenantId, DateTime startDate, DateTime endDate);
+        Task<IReadOnlyList<ClientCreditBalanceDto>> GetClientCreditBalancesAsync(int tenantId);
+        Task<ClientCreditBalanceDto> GetClientCreditBalanceAsync(int tenantId, int clientId);
+        Task<IReadOnlyList<ClientAccountTransactionDto>> GetClientCreditLedgerAsync(int tenantId, int clientId);
+        Task<ClientAccountTransactionDto> RecordAdvancePaymentAsync(int tenantId, int clientId, AdminCreateAdvancePaymentRequest request);
+        Task<IReadOnlyList<OrderAdjustmentDto>> GetOrderAdjustmentsAsync(int tenantId, int orderId);
+        Task<OrderAdjustmentDto> CreateOrderAdjustmentAsync(int tenantId, int orderId, AdminCreateOrderAdjustmentRequest request);
     }
 }

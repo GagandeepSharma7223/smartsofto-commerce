@@ -105,9 +105,14 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 throw new InvalidOperationException("Payment amount must be greater than 0");
             }
 
-            if (invoice.Amount > order.TotalAmount - order.AmountPaid)
+            var adjustmentTotal = await _context.OrderAdjustments
+                .Where(a => a.TenantId == tenantId && a.OrderId == order.Id)
+                .SumAsync(a => (decimal?)a.Amount) ?? 0m;
+            var effectiveTotal = Math.Max(order.TotalAmount - adjustmentTotal, 0m);
+            var remainingAmount = effectiveTotal - (order.AmountPaid + order.AppliedCreditAmount);
+            if (invoice.Amount > remainingAmount)
             {
-                throw new InvalidOperationException($"Payment amount cannot exceed remaining amount of {order.TotalAmount - order.AmountPaid}");
+                throw new InvalidOperationException($"Payment amount cannot exceed remaining amount of {remainingAmount}");
             }
 
             invoice.InvoiceNumber = await GenerateInvoiceNumberAsync();
@@ -122,9 +127,10 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             {
                 _context.Invoices.Add(invoice);
                 order.AmountPaid += invoice.Amount;
-                order.InvoiceStatus = order.AmountPaid >= order.TotalAmount
+                var settledAmount = order.AmountPaid + order.AppliedCreditAmount;
+                order.InvoiceStatus = settledAmount >= effectiveTotal
                     ? InvoiceStatus.Paid
-                    : InvoiceStatus.PartiallyPaid;
+                    : settledAmount > 0 ? InvoiceStatus.PartiallyPaid : InvoiceStatus.Unpaid;
                 order.UpdatedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();

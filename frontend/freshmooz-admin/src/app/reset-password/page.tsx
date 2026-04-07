@@ -39,6 +39,13 @@ function ResetPasswordContent() {
     setToken(tokenParam)
   }, [emailParam, tokenParam])
 
+  useEffect(() => {
+    if (!message) return
+    if (message.includes('Redirecting')) return
+    const timer = setTimeout(() => setMessage(null), 5000)
+    return () => clearTimeout(timer)
+  }, [message])
+
   const onRequestLink = async (e: React.FormEvent) => {
     e.preventDefault()
     const nextErrors: RequestErrors = {}

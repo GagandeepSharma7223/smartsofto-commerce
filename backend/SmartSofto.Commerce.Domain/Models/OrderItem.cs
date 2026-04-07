@@ -21,7 +21,8 @@ namespace SmartSofto.Commerce.Domain.Models
         public Product? Product { get; set; }
 
         [Required]
-        public int Quantity { get; set; }
+        [Column(TypeName = "decimal(18,3)")]
+        public decimal Quantity { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal UnitPrice { get; set; }

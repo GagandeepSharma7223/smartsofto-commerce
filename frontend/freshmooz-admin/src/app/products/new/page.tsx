@@ -1,6 +1,6 @@
 "use client"
 import LoadingState from '@/components/LoadingState'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiCreateProduct } from '@/lib/api'
 import { getToken, useClientUser } from '@/lib/auth'
@@ -44,12 +44,19 @@ export default function AdminNewProductPage() {
     type: 3,
     unit: 1,
     imageFileName: '',
-    isActive: true
+    isActive: true,
+    isLooseQuantity: false
   })
   const [errors, setErrors] = useState<ProductErrors>({})
   const [err, setErr] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!ok) return
+    const timer = setTimeout(() => setOk(null), 5000)
+    return () => clearTimeout(timer)
+  }, [ok])
 
   if (user === undefined) {
     return (
@@ -80,7 +87,8 @@ export default function AdminNewProductPage() {
     if (isBlank(form.sku)) nextErrors.sku = 'SKU is required.'
     if (!hasNonNegativeNumber(form.price)) nextErrors.price = 'Enter a valid non-negative price.'
     if (!hasNonNegativeNumber(form.costPrice)) nextErrors.costPrice = 'Enter a valid non-negative cost price.'
-    if (!Number.isInteger(Number(form.quantity)) || Number(form.quantity) < 0) nextErrors.quantity = 'Quantity must be 0 or greater.'
+    if (!hasNonNegativeNumber(form.quantity)) nextErrors.quantity = 'Quantity must be 0 or greater.'
+    else if (!form.isLooseQuantity && !Number.isInteger(Number(form.quantity))) nextErrors.quantity = 'Whole-number products must use whole quantities.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) return
 
@@ -94,18 +102,19 @@ export default function AdminNewProductPage() {
         sku: form.sku.trim(),
         price: Number(form.price || 0),
         costPrice: Number(form.costPrice || 0),
-        quantity: parseInt(form.quantity || '0', 10),
+        quantity: Number(form.quantity || '0'),
         type: form.type,
         unit: form.unit,
         imageFileName: form.imageFileName.trim() || undefined,
         isActive: form.isActive,
+        isLooseQuantity: form.isLooseQuantity,
       }
       const res = await apiCreateProduct(payload, token || undefined)
       const msg = `Created product #${res.id ?? res.Id} (${res.name ?? res.Name})`
       setOk(msg)
       try { sessionStorage.setItem('flash', msg) } catch {}
       router.push('/products')
-      setForm({ name:'', description:'', sku:'', price:'', costPrice:'', quantity:'0', type:3, unit:1, imageFileName:'', isActive:true })
+      setForm({ name:'', description:'', sku:'', price:'', costPrice:'', quantity:'0', type:3, unit:1, imageFileName:'', isActive:true, isLooseQuantity:false })
     } catch (e: any) {
       setErr(e?.message || 'Failed to create product')
     } finally {
@@ -152,7 +161,7 @@ export default function AdminNewProductPage() {
             </div>
             <div>
               <label className="block text-sm mb-1">Quantity</label>
-              <input type="number" className={fieldClass(!!errors.quantity)} value={form.quantity} onChange={e=>{const value=e.target.value; setForm({...form, quantity:value}); setErrors(prev=>({...prev, quantity: Number.isInteger(Number(value)) && Number(value) >= 0 ? undefined : prev.quantity}))}} />
+              <input type="number" step="0.001" min="0" className={fieldClass(!!errors.quantity)} value={form.quantity} onChange={e=>{const value=e.target.value; setForm({...form, quantity:value}); setErrors(prev=>({...prev, quantity: !hasNonNegativeNumber(value) ? prev.quantity : (!form.isLooseQuantity && !Number.isInteger(Number(value)) ? prev.quantity : undefined)}))}} />
               <FieldError error={errors.quantity} />
             </div>
           </div>
@@ -170,10 +179,16 @@ export default function AdminNewProductPage() {
               </select>
             </div>
           </div>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.isActive} onChange={e=>setForm({...form, isActive:e.target.checked})} />
-            Active
-          </label>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.isLooseQuantity} onChange={e=>{const checked=e.target.checked; setForm({...form, isLooseQuantity:checked}); setErrors(prev=>({...prev, quantity: checked || Number.isInteger(Number(form.quantity)) ? undefined : prev.quantity}))}} />
+              Loose quantity product
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.isActive} onChange={e=>setForm({...form, isActive:e.target.checked})} />
+              Active
+            </label>
+          </div>
           <div>
             <label className="block text-sm mb-1">Image File Name (optional)</label>
             <input className={fieldClass(false)} placeholder="e.g., paneer.jpg" value={form.imageFileName} onChange={e=>setForm({...form, imageFileName:e.target.value})} />

@@ -35,10 +35,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     throw new InvalidOperationException($"Product not found: {line.ProductId}");
                 }
 
-                if (line.Quantity <= 0)
-                {
-                    throw new InvalidOperationException($"Quantity must be greater than 0 for product {line.ProductId}");
-                }
+                ValidateQuantity(product.Name, line.Quantity, product.IsLooseQuantity);
 
                 var unitPrice = line.UnitPrice ?? product.Price;
                 if (unitPrice < 0)
@@ -59,7 +56,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
 
                 if (validateStock && product.Quantity < line.Quantity)
                 {
-                    throw new InvalidOperationException($"Insufficient stock for product {line.ProductId}. Available: {product.Quantity}");
+                    throw new InvalidOperationException($"Insufficient stock for product {line.ProductId}. Available: {product.Quantity:0.###}");
                 }
 
                 var net = gross - discount;
@@ -83,6 +80,19 @@ namespace SmartSofto.Commerce.Infrastructure.Services
 
             result.Total = result.Subtotal;
             return result;
+        }
+
+        private static void ValidateQuantity(string productName, decimal quantity, bool isLooseQuantity)
+        {
+            if (quantity <= 0)
+            {
+                throw new InvalidOperationException($"Quantity must be greater than 0 for product {productName}");
+            }
+
+            if (!isLooseQuantity && decimal.Truncate(quantity) != quantity)
+            {
+                throw new InvalidOperationException($"Product {productName} only allows whole-number quantities.");
+            }
         }
     }
 }

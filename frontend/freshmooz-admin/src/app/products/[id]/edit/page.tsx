@@ -38,6 +38,12 @@ export default function AdminEditProductPage({ params }: { params: { id: string 
   const [errors, setErrors] = useState<ProductErrors>({})
   const [err, setErr] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!ok) return
+    const timer = setTimeout(() => setOk(null), 5000)
+    return () => clearTimeout(timer)
+  }, [ok])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -55,7 +61,8 @@ export default function AdminEditProductPage({ params }: { params: { id: string 
           type: p.type ?? p.Type ?? 3,
           unit: p.unit ?? p.Unit ?? 1,
           imageFileName: p.imageFileName ?? p.ImageFileName ?? '',
-          isActive: Boolean(p.isActive ?? p.IsActive ?? true)
+          isActive: Boolean(p.isActive ?? p.IsActive ?? true),
+          isLooseQuantity: Boolean(p.isLooseQuantity ?? p.IsLooseQuantity ?? false)
         })
       } catch (e: any) { setErr(e?.message || 'Failed to load product') }
       finally { setLoading(false) }
@@ -82,7 +89,8 @@ export default function AdminEditProductPage({ params }: { params: { id: string 
     if (isBlank(form.sku)) nextErrors.sku = 'SKU is required.'
     if (!hasNonNegativeNumber(form.price)) nextErrors.price = 'Enter a valid non-negative price.'
     if (!hasNonNegativeNumber(form.costPrice)) nextErrors.costPrice = 'Enter a valid non-negative cost price.'
-    if (!Number.isInteger(Number(form.quantity)) || Number(form.quantity) < 0) nextErrors.quantity = 'Quantity must be 0 or greater.'
+    if (!hasNonNegativeNumber(form.quantity)) nextErrors.quantity = 'Quantity must be 0 or greater.'
+    else if (!form.isLooseQuantity && !Number.isInteger(Number(form.quantity))) nextErrors.quantity = 'Whole-number products must use whole quantities.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) return
 
@@ -96,7 +104,7 @@ export default function AdminEditProductPage({ params }: { params: { id: string 
         sku: form.sku,
         price: Number(form.price || 0),
         costPrice: Number(form.costPrice || 0),
-        quantity: parseInt(form.quantity || '0', 10),
+        quantity: Number(form.quantity || '0'),
         type: parseInt(form.type, 10),
         unit: parseInt(form.unit, 10),
         imageFileName: form.imageFileName || null,
@@ -153,7 +161,7 @@ export default function AdminEditProductPage({ params }: { params: { id: string 
               </div>
               <div>
                 <label className="block text-sm mb-1">Quantity</label>
-                <input type="number" className={fieldClass(!!errors.quantity)} value={form.quantity} onChange={e=>{const value=e.target.value; setForm({...form, quantity:value}); setErrors(prev=>({...prev, quantity: Number.isInteger(Number(value)) && Number(value) >= 0 ? undefined : prev.quantity}))}} />
+                <input type="number" step="0.001" min="0" className={fieldClass(!!errors.quantity)} value={form.quantity} onChange={e=>{const value=e.target.value; setForm({...form, quantity:value}); setErrors(prev=>({...prev, quantity: !hasNonNegativeNumber(value) ? prev.quantity : (!form.isLooseQuantity && !Number.isInteger(Number(value)) ? prev.quantity : undefined)}))}} />
                 <FieldError error={errors.quantity} />
               </div>
             </div>

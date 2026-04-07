@@ -71,6 +71,32 @@ namespace SmartSofto.Commerce.Api.Controllers
             }
         }
 
+
+        [HttpGet("orders/{orderId}/adjustments")]
+        public async Task<IActionResult> GetOrderAdjustments(int orderId)
+        {
+            var tenantId = _tenantService.TenantId;
+            if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
+            var adjustments = await _adminService.GetOrderAdjustmentsAsync(tenantId.Value, orderId);
+            return Ok(adjustments);
+        }
+
+        [HttpPost("orders/{orderId}/adjustments")]
+        public async Task<IActionResult> CreateOrderAdjustment(int orderId, [FromBody] AdminCreateOrderAdjustmentRequest request)
+        {
+            var tenantId = _tenantService.TenantId;
+            if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
+            try
+            {
+                var adjustment = await _adminService.CreateOrderAdjustmentAsync(tenantId.Value, orderId, request);
+                return Ok(adjustment);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         // List invoices (optionally by order)
         [HttpGet("invoices")]
         public async Task<IActionResult> GetInvoices([FromQuery] int? orderId = null)
@@ -92,6 +118,63 @@ namespace SmartSofto.Commerce.Api.Controllers
             {
                 var invoice = await _adminService.CreateInvoiceAsync(tenantId.Value, request);
                 return CreatedAtAction(nameof(GetInvoices), new { id = invoice.Id }, invoice);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("clients/credit-balances")]
+        public async Task<IActionResult> GetClientCreditBalances()
+        {
+            var tenantId = _tenantService.TenantId;
+            if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
+            var balances = await _adminService.GetClientCreditBalancesAsync(tenantId.Value);
+            return Ok(balances);
+        }
+
+        [HttpGet("clients/{clientId}/credit-balance")]
+        public async Task<IActionResult> GetClientCreditBalance(int clientId)
+        {
+            var tenantId = _tenantService.TenantId;
+            if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
+            try
+            {
+                var balance = await _adminService.GetClientCreditBalanceAsync(tenantId.Value, clientId);
+                return Ok(balance);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ex.Message);
+            }
+        }
+
+        [HttpGet("clients/{clientId}/credit-ledger")]
+        public async Task<IActionResult> GetClientCreditLedger(int clientId)
+        {
+            var tenantId = _tenantService.TenantId;
+            if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
+            try
+            {
+                var ledger = await _adminService.GetClientCreditLedgerAsync(tenantId.Value, clientId);
+                return Ok(ledger);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ex.Message);
+            }
+        }
+
+        [HttpPost("clients/{clientId}/advance-payments")]
+        public async Task<IActionResult> RecordAdvancePayment(int clientId, [FromBody] AdminCreateAdvancePaymentRequest request)
+        {
+            var tenantId = _tenantService.TenantId;
+            if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
+            try
+            {
+                var transaction = await _adminService.RecordAdvancePaymentAsync(tenantId.Value, clientId, request);
+                return Ok(transaction);
             }
             catch (InvalidOperationException ex)
             {

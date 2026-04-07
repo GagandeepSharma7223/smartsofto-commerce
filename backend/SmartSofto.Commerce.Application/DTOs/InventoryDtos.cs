@@ -4,9 +4,10 @@ namespace SmartSofto.Commerce.Application.DTOs
     {
         public int ProductId { get; set; }
         public string Name { get; set; } = string.Empty;
-        public int Quantity { get; set; }
+        public decimal Quantity { get; set; }
         public decimal Price { get; set; }
         public int Unit { get; set; }
+        public bool IsLooseQuantity { get; set; }
         public bool IsActive { get; set; }
     }
 
@@ -15,7 +16,7 @@ namespace SmartSofto.Commerce.Application.DTOs
         public long Id { get; set; }
         public int ProductId { get; set; }
         public string? ProductName { get; set; }
-        public int QuantityDelta { get; set; }
+        public decimal QuantityDelta { get; set; }
         public string Reason { get; set; } = string.Empty;
         public string ReferenceType { get; set; } = string.Empty;
         public string? ReferenceId { get; set; }

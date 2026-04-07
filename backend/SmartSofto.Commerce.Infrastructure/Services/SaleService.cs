@@ -49,7 +49,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 await _inventoryService.AdjustStock(
                     tenantId,
                     item.ProductId,
-                    -(int)item.Quantity,
+                    -item.Quantity,
                     "Sale",
                     "Sale created",
                     null,

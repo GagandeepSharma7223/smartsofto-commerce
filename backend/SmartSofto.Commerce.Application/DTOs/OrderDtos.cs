@@ -8,7 +8,7 @@ namespace SmartSofto.Commerce.Application.DTOs
     public class OrderLineRequest
     {
         public int ProductId { get; set; }
-        public int Quantity { get; set; }
+        public decimal Quantity { get; set; }
         public decimal? UnitPrice { get; set; }
         public decimal? DiscountAmount { get; set; }
     }
@@ -44,10 +44,11 @@ namespace SmartSofto.Commerce.Application.DTOs
         public OrderStatus? InitialOrderStatus { get; set; }
         public int? ClientId { get; set; }
         public int? ProductId { get; set; }
-        public int Quantity { get; set; }
+        public decimal Quantity { get; set; }
         public PaymentMethod? PaymentMethod { get; set; }
         public decimal? PaymentAmount { get; set; }
         public DateTime? PaymentDate { get; set; }
+        public decimal? ApplyCreditAmount { get; set; }
         public string? Notes { get; set; }
         public string? CustomerName { get; set; }
         public string? Email { get; set; }
@@ -63,9 +64,9 @@ namespace SmartSofto.Commerce.Application.DTOs
     public class PriceCartLine
     {
         public int ProductId { get; set; }
-        public int Quantity { get; set; }
+        public decimal Quantity { get; set; }
         [JsonPropertyName("qty")]
-        public int Qty { get => Quantity; set => Quantity = value; }
+        public decimal Qty { get => Quantity; set => Quantity = value; }
         public decimal? UnitPrice { get; set; }
         public decimal? DiscountAmount { get; set; }
     }
@@ -80,10 +81,36 @@ namespace SmartSofto.Commerce.Application.DTOs
         public int Id { get; set; }
         public int ProductId { get; set; }
         public string? ProductName { get; set; }
-        public int Quantity { get; set; }
+        public string? Sku { get; set; }
+        public decimal Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal DiscountAmount { get; set; }
         public decimal LineTotal { get; set; }
+    }
+
+    public class OrderPaymentViewModel
+    {
+        public int InvoiceId { get; set; }
+        public string InvoiceNumber { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public PaymentMethod PaymentMethod { get; set; }
+        public InvoiceStatus Status { get; set; }
+        public string? ReferenceNumber { get; set; }
+        public string? Note { get; set; }
+        public DateTime InvoiceDate { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class OrderAdjustmentViewModel
+    {
+        public long Id { get; set; }
+        public int? InvoiceId { get; set; }
+        public string? InvoiceNumber { get; set; }
+        public string Type { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public string Reason { get; set; } = string.Empty;
+        public string? Note { get; set; }
+        public DateTime CreatedUtc { get; set; }
     }
 
     public class OrderViewModel
@@ -93,26 +120,38 @@ namespace SmartSofto.Commerce.Application.DTOs
         public DateTime OrderDate { get; set; }
         public int ClientId { get; set; }
         public string? ClientName { get; set; }
+        public string? ClientEmail { get; set; }
+        public string? ClientPhone { get; set; }
         public int ProductId { get; set; }
         public string? ProductName { get; set; }
-        public int Quantity { get; set; }
+        public decimal Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal TotalAmount { get; set; }
+        public decimal AdjustmentTotal { get; set; }
+        public decimal AdjustedTotalAmount { get; set; }
+        public decimal SettledAmount { get; set; }
+        public decimal BalanceDue { get; set; }
         public OrderStatus Status { get; set; }
         public PaymentMethod PaymentMethod { get; set; }
         public InvoiceStatus InvoiceStatus { get; set; }
         public decimal AmountPaid { get; set; }
+        public decimal AppliedCreditAmount { get; set; }
         public string? Notes { get; set; }
+        public int? InvoiceId { get; set; }
+        public string? InvoiceNumber { get; set; }
+        public DateTime? InvoiceDate { get; set; }
         public AddressSnapshotDto? ShippingAddress { get; set; }
         public AddressSnapshotDto? BillingAddress { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public List<OrderItemViewModel> Items { get; set; } = new();
+        public List<OrderPaymentViewModel> Payments { get; set; } = new();
+        public List<OrderAdjustmentViewModel> Adjustments { get; set; } = new();
     }
 
     public class CartPriceViewModel
     {
-        public int TotalItems { get; set; }
+        public decimal TotalItems { get; set; }
         public decimal Subtotal { get; set; }
         public decimal DiscountTotal { get; set; }
         public decimal Total { get; set; }
@@ -123,7 +162,7 @@ namespace SmartSofto.Commerce.Application.DTOs
     {
         public int ProductId { get; set; }
         public string? ProductName { get; set; }
-        public int Quantity { get; set; }
+        public decimal Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal DiscountAmount { get; set; }
         public decimal LineTotal { get; set; }
@@ -133,7 +172,7 @@ namespace SmartSofto.Commerce.Application.DTOs
     {
         public int ProductId { get; set; }
         public string? ProductName { get; set; }
-        public int Quantity { get; set; }
+        public decimal Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal DiscountAmount { get; set; }
         public decimal LineTotal { get; set; }
@@ -147,7 +186,7 @@ namespace SmartSofto.Commerce.Application.DTOs
         public string? ClientName { get; set; }
         public int ProductId { get; set; }
         public string? ProductName { get; set; }
-        public int Quantity { get; set; }
+        public decimal Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal TotalAmount { get; set; }
         public OrderStatus Status { get; set; }
@@ -159,6 +198,7 @@ namespace SmartSofto.Commerce.Application.DTOs
         public DateTime CreatedAt { get; set; }
         public List<OrderCreateItemResult> Items { get; set; } = new();
         public decimal AmountPaid { get; set; }
+        public decimal AppliedCreditAmount { get; set; }
     }
 
     public class OrderStatusResult

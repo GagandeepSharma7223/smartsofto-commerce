@@ -18,7 +18,8 @@ namespace SmartSofto.Commerce.Domain.Models
         public Product? Product { get; set; }
 
         [Required]
-        public int QuantityDelta { get; set; }
+        [Column(TypeName = "decimal(18,3)")]
+        public decimal QuantityDelta { get; set; }
 
         [Required]
         [MaxLength(50)]

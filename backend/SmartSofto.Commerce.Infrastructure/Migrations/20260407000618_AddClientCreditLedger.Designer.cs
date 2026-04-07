@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartSofto.Commerce.Infrastructure;
@@ -11,9 +12,11 @@ using SmartSofto.Commerce.Infrastructure;
 namespace SmartSofto.Commerce.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260407000618_AddClientCreditLedger")]
+    partial class AddClientCreditLedger
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -632,57 +635,6 @@ namespace SmartSofto.Commerce.Infrastructure.Migrations
                     b.ToTable("Orders");
                 });
 
-            modelBuilder.Entity("SmartSofto.Commerce.Domain.Models.OrderAdjustment", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<int?>("InvoiceId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Note")
-                        .HasColumnType("text");
-
-                    b.Property<int>("OrderId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(1);
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("InvoiceId");
-
-                    b.HasIndex("OrderId");
-
-                    b.HasIndex("TenantId", "OrderId", "CreatedUtc")
-                        .IsDescending(false, false, true);
-
-                    b.ToTable("OrderAdjustments");
-                });
-
             modelBuilder.Entity("SmartSofto.Commerce.Domain.Models.OrderItem", b =>
                 {
                     b.Property<int>("Id")
@@ -1286,30 +1238,6 @@ namespace SmartSofto.Commerce.Infrastructure.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("SmartSofto.Commerce.Domain.Models.OrderAdjustment", b =>
-                {
-                    b.HasOne("SmartSofto.Commerce.Domain.Models.Invoice", "Invoice")
-                        .WithMany()
-                        .HasForeignKey("InvoiceId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("SmartSofto.Commerce.Domain.Models.Order", "Order")
-                        .WithMany("Adjustments")
-                        .HasForeignKey("OrderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("SmartSofto.Commerce.Domain.Models.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Invoice");
-
-                    b.Navigation("Order");
-                });
-
             modelBuilder.Entity("SmartSofto.Commerce.Domain.Models.OrderItem", b =>
                 {
                     b.HasOne("SmartSofto.Commerce.Domain.Models.Order", "Order")
@@ -1361,8 +1289,6 @@ namespace SmartSofto.Commerce.Infrastructure.Migrations
 
             modelBuilder.Entity("SmartSofto.Commerce.Domain.Models.Order", b =>
                 {
-                    b.Navigation("Adjustments");
-
                     b.Navigation("Items");
                 });
 

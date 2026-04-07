@@ -49,7 +49,8 @@ namespace SmartSofto.Commerce.Domain.Models
         public Product? Product { get; set; }
 
         [Required]
-        public int Quantity { get; set; }
+        [Column(TypeName = "decimal(18,3)")]
+        public decimal Quantity { get; set; }
 
         [Required]
         [Column(TypeName = "decimal(18,2)")]
@@ -74,6 +75,9 @@ namespace SmartSofto.Commerce.Domain.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal AmountPaid { get; set; }
 
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal AppliedCreditAmount { get; set; }
+
         public string? ShippingName { get; set; }
         public string? ShippingPhone { get; set; }
         public string? ShippingAddressLine1 { get; set; }
@@ -85,6 +89,8 @@ namespace SmartSofto.Commerce.Domain.Models
 
 
         public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
+
+        public ICollection<OrderAdjustment> Adjustments { get; set; } = new List<OrderAdjustment>();
 
         public int TenantId { get; set; } = 1;
 
@@ -99,6 +105,9 @@ namespace SmartSofto.Commerce.Domain.Models
         public string? ProductName { get; set; }
 
         [NotMapped]
-        public decimal RemainingAmount => TotalAmount - AmountPaid;
+        public decimal SettledAmount => AmountPaid + AppliedCreditAmount;
+
+        [NotMapped]
+        public decimal RemainingAmount => TotalAmount - SettledAmount;
     }
 }

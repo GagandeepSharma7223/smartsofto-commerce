@@ -1,5 +1,7 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SmartSofto.Commerce.Application.DTOs;
+using SmartSofto.Commerce.Application.Exceptions;
 using SmartSofto.Commerce.Application.Interfaces;
 using SmartSofto.Commerce.Domain.Models;
 
@@ -33,8 +35,10 @@ namespace SmartSofto.Commerce.Infrastructure.Services
         {
             client.CreatedAt = DateTime.UtcNow;
             client.TenantId = tenantId;
+            client.NormalizedPhone = NormalizePhone(client.PhoneNumber);
+            await EnsureNoDuplicatePhoneAsync(tenantId, client.NormalizedPhone, null);
             _context.Clients.Add(client);
-            await _context.SaveChangesAsync();
+            await SaveChangesWithDuplicatePhoneGuardAsync();
             return client;
         }
 
@@ -51,6 +55,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             existing.CompanyName = client.CompanyName;
             existing.Email = client.Email;
             existing.PhoneNumber = client.PhoneNumber;
+            existing.NormalizedPhone = NormalizePhone(client.PhoneNumber);
             existing.ClientType = client.ClientType;
             existing.TotalPurchases = client.TotalPurchases;
             existing.CreditLimit = client.CreditLimit;
@@ -62,7 +67,8 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             existing.Notes = client.Notes;
             existing.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await EnsureNoDuplicatePhoneAsync(tenantId, existing.NormalizedPhone, existing.Id);
+            await SaveChangesWithDuplicatePhoneGuardAsync();
             return true;
         }
 
@@ -130,11 +136,13 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     Name = dto.Name ?? string.Empty,
                     Email = dto.Email,
                     PhoneNumber = dto.PhoneNumber,
+                    NormalizedPhone = NormalizePhone(dto.PhoneNumber),
                     ReferenceName = dto.Name ?? string.Empty,
                     ClientType = "Regular",
                     CreatedAt = DateTime.UtcNow,
                     TenantId = tenantId
                 };
+                await EnsureNoDuplicatePhoneAsync(tenantId, client.NormalizedPhone, null);
                 _context.Clients.Add(client);
             }
             else
@@ -142,10 +150,12 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 client.Name = dto.Name ?? client.Name;
                 client.Email = dto.Email ?? client.Email;
                 client.PhoneNumber = dto.PhoneNumber ?? client.PhoneNumber;
+                client.NormalizedPhone = NormalizePhone(client.PhoneNumber);
                 client.UpdatedAt = DateTime.UtcNow;
+                await EnsureNoDuplicatePhoneAsync(tenantId, client.NormalizedPhone, client.Id);
             }
 
-            await _context.SaveChangesAsync();
+            await SaveChangesWithDuplicatePhoneGuardAsync();
             return await GetMyProfileAsync(tenantId, userId) ?? new ClientProfileDto();
         }
 
@@ -372,6 +382,47 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             _context.ClientAddresses.Remove(address);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        private async Task SaveChangesWithDuplicatePhoneGuardAsync()
+        {
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (ex.InnerException?.Message?.Contains("IX_Clients_TenantId_NormalizedPhone") == true)
+            {
+                throw new BusinessConflictException("A client with this phone number already exists in this tenant.");
+            }
+        }
+
+        private async Task EnsureNoDuplicatePhoneAsync(int tenantId, string? normalizedPhone, int? currentClientId)
+        {
+            if (string.IsNullOrWhiteSpace(normalizedPhone))
+            {
+                return;
+            }
+
+            var exists = await _context.Clients.AnyAsync(c =>
+                c.TenantId == tenantId &&
+                c.NormalizedPhone == normalizedPhone &&
+                (!currentClientId.HasValue || c.Id != currentClientId.Value));
+
+            if (exists)
+            {
+                throw new BusinessConflictException("A client with this phone number already exists in this tenant.");
+            }
+        }
+
+        private static string? NormalizePhone(string? phoneNumber)
+        {
+            if (string.IsNullOrWhiteSpace(phoneNumber))
+            {
+                return null;
+            }
+
+            var digitsOnly = Regex.Replace(phoneNumber, "[^0-9]", string.Empty);
+            return string.IsNullOrWhiteSpace(digitsOnly) ? null : digitsOnly;
         }
     }
 }

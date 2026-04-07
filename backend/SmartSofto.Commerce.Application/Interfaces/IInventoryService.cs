@@ -8,7 +8,7 @@ namespace SmartSofto.Commerce.Application.Interfaces
         Task<InventoryTransaction> AdjustStock(
             int tenantId,
             int productId,
-            int qtyDelta,
+            decimal qtyDelta,
             string reason,
             string? note,
             string? userId,
