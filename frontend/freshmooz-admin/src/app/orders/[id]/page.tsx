@@ -317,8 +317,9 @@ function getInvoiceTone(status?: string) {
   return 'gray'
 }
 
-function renderPayment(method?: number) {
-  switch (method) {
+function renderPayment(method?: string | number) {
+  const value = typeof method === 'string' ? Number(method) : method
+  switch (value) {
     case 2:
       return 'UPI'
     case 3:
