@@ -10,8 +10,16 @@ obj/
 # Node / Next.js
 node_modules/
 .next/
+.next-local/
 dist/
 out/
+*.tsbuildinfo
+
+# Local browser validation artifacts
+.chrome-*/
+.tmp-chrome-*/
+frontend/freshmooz-web/.popular-*.png
+products-*.png
 
 # Logs
 *.log

@@ -23,6 +23,7 @@ const IMAGE_BASE = process.env.NEXT_PUBLIC_IMAGE_BASE || '/media'
 const DEBUG_FETCH = process.env.NEXT_DEBUG_FETCH === '1'
 const CHECKOUT_ENDPOINT = process.env.NEXT_PUBLIC_CHECKOUT_ENDPOINT || '/api/Orders'
 const CART_PRICE_ENDPOINT = process.env.NEXT_PUBLIC_CART_PRICE_ENDPOINT || '/api/Orders/price'
+const REQUEST_TIMEOUT_MS = 4000
 
 export function resolveUrl(path: string) {
   if (/^https?:/i.test(path)) return path
@@ -76,7 +77,10 @@ export type ApiProduct = {
 export async function fetchProducts(): Promise<ApiProduct[]> {
   const url = resolveUrl(PRODUCTS_ENDPOINT)
   if (DEBUG_FETCH) console.log('[products] fetching', url)
-  const res = await fetch(url, DEBUG_FETCH ? { cache: 'no-store' } : { next: { revalidate: 60 } })
+  const res = await fetch(url, {
+    ...(DEBUG_FETCH ? { cache: 'no-store' as const } : { next: { revalidate: 60 } }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  })
   if (!res.ok) throw new Error('Failed to fetch products from ' + url)
   const data = await res.json()
   if (Array.isArray(data) && data.length && (data[0].slug || data[0].Slug)) {
@@ -107,7 +111,10 @@ export async function fetchProduct(slug: string): Promise<ApiProduct | null> {
     return list.find(p => p.slug === slug) || null
   } catch (e) {
     const url = resolveUrl('/products/' + slug)
-    const res = await fetch(url, DEBUG_FETCH ? { cache: 'no-store' } : { next: { revalidate: 60 } })
+    const res = await fetch(url, {
+      ...(DEBUG_FETCH ? { cache: 'no-store' as const } : { next: { revalidate: 60 } }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    })
     if (res.status === 404) return null
     if (!res.ok) throw new Error('Failed to fetch product')
     return res.json()

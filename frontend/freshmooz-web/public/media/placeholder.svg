@@ -1,16 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#ffe3f3" />
-      <stop offset="100%" stop-color="#f0e6ee" />
+      <stop offset="0%" stop-color="#f8f4eb" />
+      <stop offset="100%" stop-color="#e4ece5" />
     </linearGradient>
   </defs>
   <rect width="800" height="600" fill="url(#g)"/>
-  <g fill="none" stroke="#d9138a" stroke-width="6" opacity="0.6">
-    <rect x="160" y="140" width="480" height="320" rx="12"/>
-    <path d="M200 420 L320 300 L420 380 L520 280 L640 420" />
-    <circle cx="300" cy="240" r="32" />
+  <g fill="none" stroke="#254f3d" stroke-width="7" opacity="0.65" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M322 198h156l26 54-20 152H316l-20-152z" />
+    <path d="M296 252h208M358 198v-30h84v30" />
+    <path d="M352 306c27-28 69-28 96 0-8 48-33 73-48 73s-40-25-48-73z" fill="#dfe9e2" />
   </g>
-  <text x="50%" y="92%" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="24" fill="#8e4d6c">Image coming soon</text>
+  <text x="50%" y="82%" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="600" fill="#526157">FreshMooz product</text>
 </svg>
-

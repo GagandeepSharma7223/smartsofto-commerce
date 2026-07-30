@@ -194,11 +194,12 @@ export default function AdminNewProductPage() {
             <input className={fieldClass(false)} placeholder="e.g., paneer.jpg" value={form.imageFileName} onChange={e=>setForm({...form, imageFileName:e.target.value})} />
             <div className="text-xs text-slate-600 mt-1">The image should be available under your configured image base (e.g., {process.env.NEXT_PUBLIC_IMAGE_BASE}/file.jpg).</div>
           </div>
-          <button type="submit" disabled={loading || !form.name || !form.sku} className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white px-4 py-2 rounded-md">
-            {loading ? 'Creating?' : 'Create Product'}
+          <button type="submit" disabled={loading} className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white px-4 py-2 rounded-md">
+            {loading ? 'Creating...' : 'Create Product'}
           </button>
         </form>
       </main>
     </div>
   )
 }
+

@@ -33,6 +33,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
   const [err, setErr] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [orderFilter, setOrderFilter] = useState(searchParams.orderId || '')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [form, setForm] = useState({
     orderId: searchParams.orderId || '',
     amount: '',
@@ -145,6 +146,22 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
     })
   }, [rows])
 
+  const statusCounts = useMemo(() => {
+    return groupedRows.reduce(
+      (acc, group) => {
+        const status = getStatusKey(group.invoiceStatus)
+        acc[status] += 1
+        return acc
+      },
+      { unpaid: 0, paid: 0, partiallyPaid: 0 }
+    )
+  }, [groupedRows])
+
+  const filteredRows = useMemo(() => {
+    if (statusFilter === 'all') return groupedRows
+    return groupedRows.filter((group) => getStatusKey(group.invoiceStatus) === statusFilter)
+  }, [groupedRows, statusFilter])
+
   if (user === undefined) {
     return <Shell title="Payments"><LoadingState /></Shell>
   }
@@ -226,21 +243,40 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
           value={orderFilter}
           onChange={(e) => setOrderFilter(e.target.value)}
         />
+        <select
+          className="w-full rounded-md border px-3 py-2 sm:w-52"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="all">All statuses</option>
+          <option value="paid">Paid</option>
+          <option value="unpaid">Unpaid</option>
+          <option value="partiallyPaid">Partially Paid</option>
+        </select>
         <button
           className="px-3 py-2 border rounded-md text-sm"
           onClick={() => {
             setOrderFilter('')
-            load(undefined)
+            setStatusFilter('all')
           }}
         >
           Clear filter
         </button>
       </div>
+      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
+        <span>
+          Showing <span className="font-semibold text-slate-900">{filteredRows.length}</span> of{' '}
+          <span className="font-semibold text-slate-900">{groupedRows.length}</span> invoices
+        </span>
+        <span>Paid: <span className="font-semibold text-slate-900">{statusCounts.paid}</span></span>
+        <span>Unpaid: <span className="font-semibold text-slate-900">{statusCounts.unpaid}</span></span>
+        <span>Partially Paid: <span className="font-semibold text-slate-900">{statusCounts.partiallyPaid}</span></span>
+      </div>
       {success && <div className="mb-3 max-w-md rounded-md border border-green-200 bg-green-50 px-3 py-2 text-green-700">{success}</div>}
       {err && <div className="text-red-600 mb-3">{err}</div>}
       {rows === null ? (
         <LoadingState />
-      ) : groupedRows.length === 0 ? (
+      ) : filteredRows.length === 0 ? (
         <div className="text-slate-600">No invoices found.</div>
       ) : (
         <div className="overflow-auto border rounded-xl bg-white">
@@ -256,7 +292,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
               </tr>
             </thead>
             <tbody>
-              {groupedRows.map((group) => {
+              {filteredRows.map((group) => {
                 const statusValue = group.invoiceStatus ?? 1
                 const cashPaidDisplay = group.orderAmountPaid ?? group.paidSoFar
                 const creditAppliedDisplay = group.orderAppliedCreditAmount ?? 0
@@ -520,9 +556,20 @@ function renderStatus(status?: number) {
     case 2:
       return 'Paid'
     case 3:
-      return 'PartiallyPaid'
+      return 'Partially Paid'
     default:
       return 'Unpaid'
+  }
+}
+
+function getStatusKey(status?: number): 'paid' | 'unpaid' | 'partiallyPaid' {
+  switch (status) {
+    case 2:
+      return 'paid'
+    case 3:
+      return 'partiallyPaid'
+    default:
+      return 'unpaid'
   }
 }
 

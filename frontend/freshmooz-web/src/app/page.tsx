@@ -1,124 +1,108 @@
-﻿import Link from 'next/link'
+import Link from 'next/link'
+import CategoryCard from '@/components/CategoryCard'
+import CollectionBanner from '@/components/CollectionBanner'
+import FeatureStrip from '@/components/FeatureStrip'
+import HomeHero from '@/components/HomeHero'
+import { NewsletterCard, OnlineConfidenceCard } from '@/components/HomeSupportForms'
+import MasalaCollectionCard from '@/components/MasalaCollectionCard'
+import PopularProductCard from '@/components/PopularProductCard'
+import { ShoppingSteps, WhyFreshMooz } from '@/components/StorefrontFeatures'
+import { fetchProducts } from '@/lib/api'
+import {
+  getFallbackStorefrontProducts,
+  getMasalaCollection,
+  getPopularProducts,
+  normalizeStorefrontProducts,
+  storefrontCategories,
+  trustPoints,
+} from '@/lib/storefront'
 
-export default function HomePage() {
+export const revalidate = 60
+
+// Keep catalogue data fresh while preserving a useful local fallback.
+
+
+export default async function HomePage() {
+  const products = await getHomeProducts()
+  const popularProducts = getPopularProducts(products)
+  const masalaCollection = getMasalaCollection(products)
+
   return (
-    <div className="landing">
-      {/* Sticky Buy/Store CTA */}
-      <a className="cta-float" href="#contact">Find a Store</a>
+    <main id="main-content">
+      <HomeHero />
+      <FeatureStrip items={trustPoints} />
 
-      {/* NAV is rendered globally via layout header */}
-
-      {/* HERO (video background) */}
-      <section className="hero" aria-label="Hero">
-        <video autoPlay muted loop playsInline poster="/media/hero-poster.jpg">
-          <source src="/media/hero-paneer2.mp4" type="video/mp4" />
-        </video>
-        <div className="tint" aria-hidden="true"></div>
-
-        <div className="badge">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3c4.97 0 9 4.03 9 9s-4.03 9-9 9-9-4.03-9-9 4.03-9 9-9Z" stroke="currentColor" strokeWidth="2"/><path d="M8 12h8" stroke="currentColor" strokeWidth="2"/></svg>
-          Farm Fresh Promise
-        </div>
-
-        <div className="copy">
-          <h1>Farm Fresh Dairy & Organic Goodness.</h1>
-          <p className="lead">Clean, creamy essentials made from fresh milk and thoughtfully sourced ingredients for every family meal.</p>
-          <Link className="btn primary" href="/products">Shop Fresh Picks</Link>
-          <a className="btn ghost" href="#contact">Locate Retailers</a>
-          <div className="chips">
-            <span className="chip">Protein-rich</span>
-            <span className="chip">Preservative-free</span>
-            <span className="chip">Cold-chain</span>
-            <span className="chip">Vegetarian</span>
+      <section id="categories" className="storefront-section category-browser-section">
+        <div className="storefront-shell space-y-5">
+          <SectionIntro kicker="Shop by category" title="Good food starts with dependable essentials." copy="Browse everyday dairy, cooking staples, and traditional favourites for the recipes you make most." />
+          <div className="category-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {storefrontCategories.map((category) => <CategoryCard key={category.name} category={category} />)}
           </div>
         </div>
       </section>
 
-      {/* Milk wave separator */}
-      <div className="wave" aria-hidden="true">
-        <svg viewBox="0 0 1440 80" preserveAspectRatio="none">
-          <path d="M0,40 C180,80 360,0 540,40 C720,80 900,0 1080,40 C1260,80 1440,20 1440,20 L1440,80 L0,80 Z" fill="var(--cream)"></path>
-        </svg>
-      </div>
-
-      {/* VALUE BAND (why buy) */}
-      <section id="value" className="value">
-        <h2>Why families choose FreshMooz</h2>
-        <p className="sub">Real milk. Real craft. Real taste.</p>
-        <div className="value__grid">
-          <div className="value__card"><span className="dot"></span><div><strong>Milk-first recipe</strong><br /><span className="muted">No shortcuts, no fillers.</span></div></div>
-          <div className="value__card"><span className="dot"></span><div><strong>Batch-wise quality</strong><br /><span className="muted">Every lot is tested for consistency.</span></div></div>
-          <div className="value__card"><span className="dot"></span><div><strong>Cold-chain freshness</strong><br /><span className="muted">Chilled from plant to store.</span></div></div>
-          <div className="value__card"><span className="dot"></span><div><strong>Clean label</strong><br /><span className="muted">Preservative-free and vegetarian.</span></div></div>
-        </div>
-      </section>
-
-      {/* PRODUCTS (teaser) */}
-      <section id="products">
-        <h2>Fresh Dairy Favourites</h2>
-        <p className="sub">From everyday meals to festive sweets.</p>
-        <div className="grid">
-          <article className="card">
-            <img src="/media/paneer.jpg" alt="Malai Paneer pack" loading="lazy" />
-            <div className="card__body">
-              <h3 className="card__title">Malai Paneer</h3>
-              <p className="card__text">Soft, creamy bite - perfect for curries and grills.</p>
-            </div>
-          </article>
-          <article className="card">
-            <img src="/media/white_butter.jpg" alt="White Butter / Makkhan" loading="lazy" />
-            <div className="card__body">
-              <h3 className="card__title">White Butter / Makkhan</h3>
-              <p className="card__text">Unsalted, traditionally churned purity.</p>
-            </div>
-          </article>
-          <article className="card">
-            <img src="/media/khoya.jpg" alt="Khoya" loading="lazy" />
-            <div className="card__body">
-              <h3 className="card__title">Khoya</h3>
-              <p className="card__text">Rich and granular - ideal for classic mithai.</p>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      {/* STORY */}
-      <section id="story" className="story">
-        <div className="story__inner">
-          <h2>From our dairy to your table</h2>
-          <p>We stay committed to honest dairy, sourcing quality milk, maintaining hygienic standards, and crafting products that let ingredients shine.</p>
-          <div className="chips" style={{justifyContent:'center',marginTop:14}}>
-            <span className="chip" style={{borderColor:'#e1f1e9',color:'var(--primary)'}}>Farm-sourced milk</span>
-            <span className="chip">FSSAI</span>
-            <span className="chip">Traceable lots</span>
+      <section id="popular-products" className="storefront-section bg-white">
+        <div className="storefront-shell space-y-8">
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <SectionIntro kicker="FreshMooz favourites" title="Popular picks" copy="Easy-to-compare pack details and prices make stocking the kitchen simpler." />
+            <Link href="/products" className="storefront-button-secondary shrink-0">View all products</Link>
+          </div>
+          <div className="popular-products-grid grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {popularProducts.map((product) => <PopularProductCard key={product.id} product={product} />)}
           </div>
         </div>
       </section>
 
-      {/* QUALITY BAND */}
-      <section aria-label="Quality">
-        <div className="quality">
-          <h2 style={{color:'#fff'}}>Quality you can taste</h2>
-          <p style={{color:'#e9efe3'}}>Rapid chilling, modern processing, and sensory checks keep every bite consistent.</p>
+      <CollectionBanner />
+
+      {masalaCollection.length ? (
+        <section id="everyday-essentials" className="storefront-section masala-collection-section bg-white">
+          <div className="storefront-shell space-y-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <SectionIntro kicker="Masala collection" title="Masalas for Every Kitchen." copy="Compact spice essentials selected for daily cooking, quick meal prep, and fuller flavour." />
+              <Link href="/products" className="storefront-button-secondary shrink-0">Shop masalas</Link>
+            </div>
+            <div className="masala-collection-grid">
+              {masalaCollection.map((product) => <MasalaCollectionCard key={product.id} product={product} />)}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <WhyFreshMooz />
+      <ShoppingSteps />
+
+      <section id="online-shopping" className="online-confidence-section storefront-section">
+        <div className="storefront-shell grid gap-7 lg:grid-cols-[0.72fr,1.28fr] lg:items-center">
+          <SectionIntro kicker="Shop online" title="Shop FreshMooz online with confidence" copy="Everything is set up for straightforward online browsing, cart building, and checkout." />
+          <OnlineConfidenceCard />
         </div>
       </section>
 
-      {/* CONTACT */}
-      <section id="contact">
-        <h2>Find a Store &amp; Contact</h2>
-        <p className="sub">Available across leading supermarkets and local retailers.</p>
-        <div style={{maxWidth:720,margin:'auto',textAlign:'center'}}>
-          <form action="#" style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap',marginBottom:14}}>
-            <input type="text" placeholder="Enter city or pincode" aria-label="City or pincode" style={{flex:1,minWidth:240,maxWidth:420,padding:'.9rem 1rem',border:'1px solid var(--border)',borderRadius:14,background:'#fff'}} />
-            <button className="btn primary" type="submit">Search</button>
-          </form>
-          <p>Email: <strong>hello@freshmooz.com</strong></p>
-          <p>WhatsApp: <strong>+91-XXXXXXXXXX</strong></p>
-          <p>Instagram: <strong>@freshmooz</strong></p>
+      <section id="newsletter" className="newsletter-section storefront-section bg-[var(--color-accent-soft)]">
+        <div className="storefront-shell grid gap-6 lg:grid-cols-[0.86fr,1.14fr] lg:items-center">
+          <SectionIntro kicker="FreshMooz updates" title="Get FreshMooz updates" copy="Occasional notes about product additions and seasonal availability." />
+          <NewsletterCard />
         </div>
       </section>
+    </main>
+  )
+}
 
-      <footer>Copyright {new Date().getFullYear()} FreshMooz. All rights reserved.</footer>
+function SectionIntro({ kicker, title, copy }: { kicker: string; title: string; copy: string }) {
+  return (
+    <div className="max-w-2xl">
+      <div className="storefront-kicker">{kicker}</div>
+      <h2 className="storefront-heading">{title}</h2>
+      <p className="mt-3 storefront-copy">{copy}</p>
     </div>
   )
+}
+
+async function getHomeProducts() {
+  try {
+    const items = await fetchProducts()
+    if (Array.isArray(items) && items.length) return normalizeStorefrontProducts(items as any)
+  } catch {}
+  return getFallbackStorefrontProducts()
 }

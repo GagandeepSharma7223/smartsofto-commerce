@@ -1,30 +1,70 @@
 "use client"
-import AddToCartButton from '@/components/AddToCartButton'
+import Link from 'next/link'
 import ImageWithFallback from '@/components/ImageWithFallback'
 
-type Variant = { id: string; label: string; price: number; currency?: string; slug?: string }
-type Group = { baseName: string; image?: string; variants: Variant[] }
+type Variant = { id: string; label: string; price: number; currency?: string; slug?: string; availability?: 'available' | 'limited' | 'sold_out' }
+type Group = { baseName: string; image?: string; category?: string; variants: Variant[] }
 
 export default function ProductVariantsCard({ group }: { group: Group }) {
+  const firstAvailable = group.variants.find((variant) => variant.availability !== 'sold_out') || group.variants[0]
+  const href = firstAvailable?.slug ? `/product/${firstAvailable.slug}` : '/products'
+  const prices = group.variants.map((variant) => variant.price).filter((price) => Number.isFinite(price))
+  const minPrice = prices.length ? Math.min(...prices) : 0
+  const maxPrice = prices.length ? Math.max(...prices) : 0
+  const currency = firstAvailable?.currency === 'USD' ? '$' : 'Rs. '
+  const price = minPrice === maxPrice ? `${currency}${minPrice}` : `${currency}${minPrice} - ${currency}${maxPrice}`
+  const sizeLabel = group.variants
+    .map((variant) => variant.label)
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' / ')
+  const allSoldOut = group.variants.every((variant) => variant.availability === 'sold_out')
+  const availability = allSoldOut
+    ? 'Out of stock'
+    : group.variants.some((variant) => variant.availability === 'limited')
+      ? 'Limited'
+      : 'Available'
+
   return (
-    <div className="border border-[#E7E1D6] rounded-2xl overflow-hidden flex flex-col bg-[#fffdf7] shadow-[0_10px_30px_rgba(217,19,138,0.06)] hover:shadow-[0_16px_36px_rgba(217,19,138,0.12)] transition">
-      <div className="relative aspect-[4/3] bg-[#f7f3ea] text-slate-400">
-        <ImageWithFallback src={group.image || '/media/placeholder.svg'} alt={group.baseName} fill sizes="(min-width: 768px) 25vw, 50vw" style={{ objectFit: 'cover' }} />
-      </div>
-      <div className="p-4 flex flex-col gap-3">
-        <div className="font-semibold leading-tight">{group.baseName}</div>
-        <div className="space-y-2">
-          {group.variants.map(v => (
-            <div key={v.id} className="flex items-center justify-between border border-[#E7E1D6] rounded-xl px-3 py-2">
-              <div className="text-sm">
-                <span className="font-medium mr-2">{v.label}</span>
-                <span className="text-[#5a5a5a]">{String.fromCharCode(8377)}{v.price}</span>
-              </div>
-              <AddToCartButton id={v.id} label="Add" className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white" />
-            </div>
-          ))}
+    <article className="product-card catalog-product-card storefront-surface">
+      <Link href={href} className="catalog-product-card__media" aria-label={`View options for ${group.baseName}`}>
+        <ImageWithFallback
+          src={group.image || '/media/placeholder.svg'}
+          alt={group.baseName}
+          fill
+          sizes="(min-width: 1280px) 20vw, (min-width: 768px) 42vw, 92vw"
+          style={{ objectFit: 'contain', padding: '0.95rem' }}
+        />
+        <span className="catalog-product-card__badge">{group.variants.length} options</span>
+      </Link>
+
+      <div className="catalog-product-card__body">
+        <div className="min-w-0">
+          <div className="catalog-product-card__meta-row">
+            <p className="catalog-product-card__category">{group.category || 'Options'}</p>
+            <span className="storefront-status" data-status={allSoldOut ? 'sold_out' : 'available'}>{availability}</span>
+          </div>
+          <Link href={href} className="catalog-product-card__title-link">
+            <h3 className="catalog-product-card__title">{group.baseName}</h3>
+          </Link>
+          <p className="catalog-product-card__blurb">{group.variants.length} pack options available.</p>
+        </div>
+
+        <div className="catalog-product-card__footer">
+          <div className="catalog-product-card__price-row">
+            <span className="catalog-product-card__size">{sizeLabel || 'Multiple sizes'}</span>
+            <span className="catalog-product-card__prices">
+              <span className="catalog-product-card__price">{price}</span>
+            </span>
+          </div>
+          <div className="catalog-product-card__actions">
+            <Link href={href} className="catalog-product-card__button catalog-product-card__button--primary">
+              Choose options
+            </Link>
+            <span className="catalog-product-card__option-note">{group.variants.length} sizes</span>
+          </div>
         </div>
       </div>
-    </div>
+    </article>
   )
 }

@@ -29,7 +29,6 @@ export default function CartIcon({ className = '', size = 'lg', showLabel = true
     }
   }, [])
 
-  // Bump animation on count change
   useEffect(() => {
     if (!count) return
     setBump(true)
@@ -41,19 +40,18 @@ export default function CartIcon({ className = '', size = 'lg', showLabel = true
   const icon = size === 'lg' ? { w: 24, h: 24 } : { w: 18, h: 18 }
 
   return (
-    <Link href="/cart" aria-label={`Cart`}
-      className={`inline-flex items-center gap-2 ${className}`}>
-      <span className={`relative inline-flex items-center justify-center rounded-full border border-[#E7E1D6] hover:bg-[#F1F7EC] ${dim}`}>
+    <Link href="/cart" aria-label="Cart" className={`inline-flex items-center gap-2 ${className}`}>
+      <span className={`relative inline-flex items-center justify-center rounded-full border border-[var(--color-border)] bg-white text-[var(--color-primary-strong)] transition hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)] ${dim}`}>
         <svg viewBox="0 0 24 24" width={icon.w} height={icon.h} aria-hidden="true">
           <path d="M7 4h-2m2 0h12l-1.5 9h-10.5m0 0l-1 6h11m-10 -6l-2 -9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         {count > 0 && (
-          <span className={`absolute -top-2 -right-2 bg-[#6FAF3D] text-white text-[10px] leading-none px-1.5 py-1 rounded-full font-bold shadow cart-badge ${bump ? 'bump' : ''}`}>
+          <span className={`cart-badge absolute -top-2 -right-2 rounded-full bg-[var(--color-primary)] px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow ${bump ? 'bump' : ''}`}>
             {count}
           </span>
         )}
       </span>
-      {showLabel && <span className="text-base font-medium">Cart</span>}
+      {showLabel && <span className="text-base font-medium text-[var(--color-primary-strong)]">Cart</span>}
     </Link>
   )
 }

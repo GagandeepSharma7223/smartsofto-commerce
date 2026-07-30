@@ -1,7 +1,6 @@
 "use client"
 import { useEffect, useMemo, useState } from 'react'
-import { priceCart, checkout as apiCheckout, resolveUrl, apiListMyAddresses } from '@/lib/api'
-import SiteHeader from '@/components/SiteHeader'
+import { priceCart, resolveUrl, apiListMyAddresses } from '@/lib/api'
 import { readCart, setQty as setQtyUtil, removeFromCart as removeFromCartUtil } from '@/lib/cart'
 import { useClientUser, getToken } from '@/lib/auth'
 
@@ -100,16 +99,6 @@ export default function CartPage() {
     }
   }
 
-  const checkout = async () => {
-    try {
-      const payload = items.map(i => ({ productId: i.id, qty: i.qty }))
-      const res = await apiCheckout({ items: payload })
-      alert(`Order placed: ${res.orderId}`)
-    } catch {
-      alert('Checkout failed. Ensure API is running.')
-    }
-  }
-
   return (
     <div className="landing">
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
@@ -167,10 +156,12 @@ export default function CartPage() {
                     <button
                       aria-label="Delete item"
                       title="Delete item"
-                      className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-[#6FAF3D] text-white hover:bg-[#5F9B34] shadow"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-primary)] text-white shadow transition hover:bg-[var(--color-primary-strong)]"
                       onClick={() => removeItem(i.id)}
                     >
-                      <i className="fa-solid fa-trash-can text-[16px]"></i>
+                      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M4 7h16M10 11v6M14 11v6M9 7l1-2h4l1 2M7 7l1 12h8l1-12" />
+                      </svg>
                     </button>
                   </div>
                 </div>
@@ -210,14 +201,6 @@ export default function CartPage() {
           </div>
         )}
       </main>
-      <footer>
-        <div className="py-8 text-center text-sm text-slate-600">
-          <div className="inline-flex items-center gap-2 justify-center">
-            <img src="/media/logo.jpg" alt="Standard Paneer logo" style={{ height: 28, width: 'auto' }} />
-            <span>Ac {new Date().getFullYear()} Standard Paneer. All rights reserved.</span>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

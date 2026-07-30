@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  distDir: '.next-local',
   reactStrictMode: true,
   images: {
     remotePatterns: [
@@ -9,4 +10,3 @@ const nextConfig = {
 }
 
 export default nextConfig
-

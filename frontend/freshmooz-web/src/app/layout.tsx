@@ -1,24 +1,21 @@
 import './globals.css'
 import './landing.css'
-import AuthGate from '@/components/AuthGate'
-import dynamic from 'next/dynamic'
 import type { Metadata } from 'next'
-import { Nunito, Poppins } from 'next/font/google'
-
-const heading = Poppins({ subsets: ['latin'], weight: ['600', '700', '800'], variable: '--font-heading' })
-const body = Nunito({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-body' })
+import AuthGate from '@/components/AuthGate'
+import SiteFooter from '@/components/SiteFooter'
+import SiteHeader from '@/components/SiteHeader'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://www.standardpaneer.example'),
+  metadataBase: new URL('https://freshmooz.com'),
   title: {
-    default: 'FreshMooz — Fresh Dairy Products',
+    default: 'FreshMooz | Quality food and household favourites',
     template: '%s | FreshMooz'
   },
-  description: 'Buy fresh paneer and dairy products online. Fast delivery and great prices.',
+  description: 'Shop FreshMooz for trusted dairy, pantry essentials, traditional favourites, and selected products for everyday living.',
   openGraph: {
     title: 'FreshMooz',
-    description: 'Fresh paneer and dairy products online',
-    url: 'https://www.standardpaneer.example',
+    description: 'A premium food storefront for dairy, pantry essentials, and traditional favourites.',
+    url: 'https://freshmooz.com',
     siteName: 'FreshMooz',
     type: 'website'
   },
@@ -28,16 +25,14 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const Header = dynamic(() => import('@/components/SiteHeader'), { ssr: false })
   return (
-    <html lang="en" className={`${heading.variable} ${body.variable}`}>
-      <head>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-      </head>
+    <html lang="en">
       <body>
         <AuthGate />
-        <Header />
+        <a href="#main-content" className="skip-link">Skip to content</a>
+        <SiteHeader />
         {children}
+        <SiteFooter />
       </body>
     </html>
   )

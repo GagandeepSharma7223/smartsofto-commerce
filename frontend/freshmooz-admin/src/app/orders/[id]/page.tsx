@@ -1,15 +1,57 @@
 "use client"
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import LoadingState from '@/components/LoadingState'
 import { useClientUser, getToken } from '@/lib/auth'
-import { apiAdminOrderDetails, type AdminOrderDetail } from '@/lib/api'
+import { apiAdminCreateOrderAdjustment, apiAdminOrderDetails, type AdminOrderDetail } from '@/lib/api'
+import { showError, showSuccess } from '@/lib/alert'
+import { FieldError, fieldClass } from '@/lib/form-ui'
+
+const adjustmentTypes = [
+  { value: '1', label: 'Discount' },
+  { value: '2', label: 'Credit Note' },
+  { value: '3', label: 'Adjustment' },
+] as const
+
+type AdjustmentForm = {
+  amount: string
+  type: string
+  reason: string
+  note: string
+}
+
+type AdjustmentErrors = {
+  amount?: string
+  reason?: string
+}
+
+const emptyAdjustmentForm: AdjustmentForm = {
+  amount: '',
+  type: '1',
+  reason: '',
+  note: '',
+}
 
 export default function AdminOrderDetailsPage({ params }: { params: { id: string } }) {
   const user = useClientUser()
   const [order, setOrder] = useState<AdminOrderDetail | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [adjustmentOpen, setAdjustmentOpen] = useState(false)
+  const [adjustmentSaving, setAdjustmentSaving] = useState(false)
+  const [adjustmentForm, setAdjustmentForm] = useState<AdjustmentForm>(emptyAdjustmentForm)
+  const [adjustmentErrors, setAdjustmentErrors] = useState<AdjustmentErrors>({})
+
+  const loadOrder = useCallback(async () => {
+    try {
+      setErr(null)
+      const data = await apiAdminOrderDetails(Number(params.id), getToken() || undefined)
+      setOrder(data)
+    } catch (e: any) {
+      setErr(e?.message || 'Failed to load order details')
+      setOrder(null)
+    }
+  }, [params.id])
 
   useEffect(() => {
     let active = true
@@ -67,6 +109,56 @@ export default function AdminOrderDetailsPage({ params }: { params: { id: string
   const settledWithoutPayments = !hasPayments && order.settledAmount > 0
   const itemCount = order.items.length
   const totalQty = order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+
+
+  const openAdjustmentModal = () => {
+    if (order.status !== 'Delivered') return
+    setAdjustmentForm(emptyAdjustmentForm)
+    setAdjustmentErrors({})
+    setAdjustmentOpen(true)
+  }
+
+  const closeAdjustmentModal = () => {
+    if (adjustmentSaving) return
+    setAdjustmentOpen(false)
+    setAdjustmentErrors({})
+  }
+
+  const saveAdjustment = async () => {
+    const amount = Number(adjustmentForm.amount)
+    const nextErrors: AdjustmentErrors = {}
+    if (!Number.isFinite(amount) || amount <= 0) {
+      nextErrors.amount = 'Amount must be greater than 0.'
+    }
+    if (!adjustmentForm.reason.trim()) {
+      nextErrors.reason = 'Reason is required.'
+    }
+    setAdjustmentErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+
+    try {
+      setAdjustmentSaving(true)
+      await apiAdminCreateOrderAdjustment(
+        order.id,
+        {
+          amount,
+          type: Number(adjustmentForm.type),
+          reason: adjustmentForm.reason.trim(),
+          note: adjustmentForm.note.trim() || undefined,
+        },
+        getToken() || undefined
+      )
+      await loadOrder()
+      setAdjustmentOpen(false)
+      setAdjustmentForm(emptyAdjustmentForm)
+      setAdjustmentErrors({})
+      await showSuccess('Adjustment recorded successfully')
+    } catch (e: any) {
+      await showError(e?.message || 'Failed to create adjustment', 'Adjustment failed')
+    } finally {
+      setAdjustmentSaving(false)
+    }
+  }
 
   return (
     <Shell>
@@ -212,7 +304,7 @@ export default function AdminOrderDetailsPage({ params }: { params: { id: string
           <Section title="Adjustments">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="text-sm text-slate-500">Discounts, credit notes, and manual invoice/order adjustments.</div>
-              <button type="button" className="inline-flex rounded-lg border border-amber-300 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50">
+              <button type="button" onClick={openAdjustmentModal} disabled={order.status !== 'Delivered'} className="inline-flex rounded-lg border border-amber-300 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50">
                 Add Adjustment
               </button>
             </div>
@@ -235,6 +327,74 @@ export default function AdminOrderDetailsPage({ params }: { params: { id: string
             )}
           </Section>
         </div>
+
+
+        {adjustmentOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-4 py-6" onClick={closeAdjustmentModal}>
+            <div className="mx-auto mt-10 w-full max-w-xl rounded-xl border bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-lg font-semibold text-slate-950">Add adjustment</div>
+                  <p className="mt-1 text-sm text-slate-600">{order.orderNumber || `Order #${order.id}`}</p>
+                </div>
+                <button type="button" aria-label="Close" onClick={closeAdjustmentModal} className="text-slate-500 hover:text-slate-700 text-2xl leading-none">&times;</button>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Type</label>
+                  <select
+                    className="w-full rounded-md border px-3 py-2"
+                    value={adjustmentForm.type}
+                    onChange={(e) => setAdjustmentForm((prev) => ({ ...prev, type: e.target.value }))}
+                    disabled={adjustmentSaving}
+                  >
+                    {adjustmentTypes.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className={fieldClass(!!adjustmentErrors.amount)}
+                    value={adjustmentForm.amount}
+                    onChange={(e) => setAdjustmentForm((prev) => ({ ...prev, amount: e.target.value }))}
+                    disabled={adjustmentSaving}
+                  />
+                  <FieldError error={adjustmentErrors.amount} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Reason</label>
+                  <input
+                    className={fieldClass(!!adjustmentErrors.reason)}
+                    value={adjustmentForm.reason}
+                    onChange={(e) => setAdjustmentForm((prev) => ({ ...prev, reason: e.target.value }))}
+                    disabled={adjustmentSaving}
+                  />
+                  <FieldError error={adjustmentErrors.reason} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Note</label>
+                  <textarea
+                    rows={3}
+                    className="w-full rounded-md border px-3 py-2"
+                    value={adjustmentForm.note}
+                    onChange={(e) => setAdjustmentForm((prev) => ({ ...prev, note: e.target.value }))}
+                    disabled={adjustmentSaving}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button" onClick={closeAdjustmentModal} disabled={adjustmentSaving} className="rounded-md border px-4 py-2 text-sm text-slate-700">Cancel</button>
+                <button type="button" onClick={saveAdjustment} disabled={adjustmentSaving} className="rounded-md bg-[#6FAF3D] px-4 py-2 text-sm text-white hover:bg-[#5F9B34] disabled:opacity-60">{adjustmentSaving ? 'Saving...' : 'Save adjustment'}</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Shell>
   )

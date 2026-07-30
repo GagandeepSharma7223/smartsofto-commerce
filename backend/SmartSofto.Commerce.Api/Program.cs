@@ -8,12 +8,14 @@ using SmartSofto.Commerce.Infrastructure;
 using SmartSofto.Commerce.Infrastructure.Identity;
 using SmartSofto.Commerce.Infrastructure.Services;
 using SmartSofto.Commerce.Api.Services;
+using SmartSofto.Commerce.Api.Settings;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuration
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
 
 // DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -69,7 +71,29 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<ICurrentTenantService, CurrentTenantService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
-builder.Services.AddScoped<IEmailSender, DevEmailSender>();
+builder.Services.AddScoped<NoOpEmailSender>();
+builder.Services.AddScoped<SmtpEmailSender>();
+builder.Services.AddScoped<IEmailSender>(serviceProvider =>
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var smtpSection = configuration.GetSection("Smtp");
+    var enabled = smtpSection.GetValue<bool>("Enabled");
+    var host = smtpSection["Host"];
+    var fromEmail = smtpSection["FromEmail"];
+    var username = smtpSection["Username"];
+    var password = smtpSection["Password"];
+
+    var isConfigured =
+        enabled &&
+        !string.IsNullOrWhiteSpace(host) &&
+        !string.IsNullOrWhiteSpace(fromEmail) &&
+        !string.IsNullOrWhiteSpace(username) &&
+        !string.IsNullOrWhiteSpace(password);
+
+    return isConfigured
+        ? serviceProvider.GetRequiredService<SmtpEmailSender>()
+        : serviceProvider.GetRequiredService<NoOpEmailSender>();
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

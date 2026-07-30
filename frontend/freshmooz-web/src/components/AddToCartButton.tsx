@@ -1,31 +1,32 @@
 ﻿"use client"
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { addToCart } from '@/lib/cart'
 
-export default function AddToCartButton({ id, label = 'Add to Cart', className = '' }: { id: string; label?: string; className?: string }) {
-  const [adding, setAdding] = useState(false)
-  const [flash, setFlash] = useState(false)
+export default function AddToCartButton({ id, label = 'Add to cart', className = '', disabled = false }: { id: string; label?: string; className?: string; disabled?: boolean }) {
+  const [added, setAdded] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const onAdd = async () => {
-    setAdding(true)
-    try {
-      addToCart(id, 1)
-      setFlash(true)
-      setTimeout(() => setFlash(false), 500)
-    } finally {
-      setAdding(false)
-    }
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current)
+  }, [])
+
+  const onAdd = () => {
+    if (disabled) return
+    addToCart(id, 1)
+    setAdded(true)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => setAdded(false), 1500)
   }
 
   return (
     <button
+      type="button"
       onClick={onAdd}
-      disabled={adding}
-      className={`px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60 ${flash ? 'btn-add-flash' : ''} ${className}`}
-      aria-label={label}
-      title={label}
+      disabled={disabled}
+      className={`inline-flex min-h-12 items-center justify-center rounded-full px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-55 ${added ? 'btn-add-flash' : ''} ${className}`}
+      aria-label={added ? `${label}: added` : label}
     >
-      {adding ? 'Adding…' : label}
+      <span aria-live="polite">{added ? 'Added' : label}</span>
     </button>
   )
 }
