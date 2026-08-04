@@ -2,6 +2,17 @@
 
 Status labels used in this document: **Confirmed**, **Partial**, **Missing**, **Planned**, **Unverified**.
 
+## Confirmed owner decisions
+
+- **Confirmed:** FreshMooz will launch with verified online payments.
+- **Confirmed:** Razorpay is the selected payment provider.
+- **Confirmed:** The initial market is India.
+- **Confirmed:** The primary currency is INR.
+- **Confirmed:** Intended payment methods are UPI, cards, supported wallets, and international cards where enabled by Razorpay.
+- **Confirmed:** Manual client-supplied payment amounts or payment methods must not mark public orders as paid.
+- **Confirmed:** Guest checkout remains the intended direction for one-time purchases.
+- **Confirmed:** Product subscriptions remain planned for a later phase.
+
 ## 1. Confirmed existing capabilities
 
 ### Storefront
@@ -53,10 +64,18 @@ Status labels used in this document: **Confirmed**, **Partial**, **Missing**, **
 ### Payment launch
 
 - **Partial:** Current payment methods represent manual/internal labels: Cash, UPI, Cheque.
-- **Missing:** Real online payment provider integration.
-- **Missing:** Payment webhook handling.
-- **Required:** Launch must either clearly treat orders as unpaid/manual payment or integrate a real payment provider before claiming online payment completion.
+- **Missing:** Razorpay integration.
+- **Missing:** Razorpay webhook handling.
+- **Required:** Launch must integrate Razorpay verified online payments before claiming online payment completion.
+- **Required:** Backend must create Razorpay Orders from a server-calculated FreshMooz order total.
+- **Required:** Amounts must use INR and be converted safely to Razorpay paise values server-side.
+- **Required:** Backend must verify Razorpay Checkout payment signatures before marking payments/orders paid.
+- **Required:** Webhook handling must be idempotent.
+- **Required:** Payment reconciliation must be supported so FreshMooz order/payment status can be compared against Razorpay.
+- **Required:** Checkout must handle payment success, failure, cancellation, and retry states.
+- **Required:** Order confirmation must appear only after valid FreshMooz order creation; paid status must depend on verified Razorpay payment.
 - **Required:** Public checkout must not allow clients to mark orders paid.
+- **Planned:** Razorpay Subscriptions are future work and are not part of the initial one-time purchase implementation.
 
 ### Email and communication
 
@@ -97,6 +116,7 @@ Status labels used in this document: **Confirmed**, **Partial**, **Missing**, **
 - **Planned:** Product subscriptions.
 
 Product subscriptions are planned only. They are not implemented and should not be required for one-time FreshMooz launch checkout.
+Razorpay Subscriptions are also future work. The initial Razorpay implementation is for one-time purchases only.
 
 ## 4. Future ideas
 
@@ -118,4 +138,4 @@ Product subscriptions are planned only. They are not implemented and should not 
 - **Planned:** Account requirement only for future subscriptions.
 - **Missing:** Idempotency key and duplicate submission protection.
 - **Missing:** Secure guest order lookup token.
-- **Missing:** Payment provider integration, if online payment is required.
+- **Missing:** Razorpay one-time payment integration.

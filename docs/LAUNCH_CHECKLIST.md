@@ -57,11 +57,40 @@ Status labels used in this checklist: **Confirmed**, **Partial**, **Missing**, *
 
 - [ ] **Partial:** Manual payment methods exist: Cash, UPI, Cheque.
 - [ ] **Partial:** Admin can record payment/invoice records.
-- [ ] **Missing:** Real online payment gateway.
-- [ ] **Missing:** Payment webhook endpoint.
-- [ ] **Missing:** Payment verification before marking order paid.
-- [ ] **Required:** Decide whether launch is unpaid/manual payment or online payment.
-- [ ] **Required:** Do not claim secure online payment completion unless a real provider flow exists.
+- [ ] **Confirmed:** FreshMooz launch requires verified online payments.
+- [ ] **Confirmed:** Razorpay is the selected payment provider.
+- [ ] **Confirmed:** Initial market is India.
+- [ ] **Confirmed:** Primary currency is INR.
+- [ ] **Confirmed:** Intended payment methods are UPI, cards, supported wallets, and international cards where enabled by Razorpay.
+- [ ] **Required:** Razorpay account activation and KYC completed.
+- [ ] **Required:** Razorpay test API keys configured securely.
+- [ ] **Required:** Razorpay production API keys configured securely.
+- [ ] **Required:** Razorpay secrets stored only in secure server-side configuration.
+- [ ] **Required:** INR amount conversion to paise is implemented and tested server-side.
+- [ ] **Required:** Backend Razorpay Order creation exists and uses server-calculated FreshMooz totals.
+- [ ] **Required:** Razorpay Checkout integration exists in the storefront.
+- [ ] **Required:** Checkout payment signature verification exists on the backend.
+- [ ] **Required:** Razorpay webhook endpoint exists.
+- [ ] **Required:** Webhook signature verification exists.
+- [ ] **Required:** Webhook event idempotency exists.
+- [ ] **Required:** Payment record persistence exists.
+- [ ] **Required:** FreshMooz order-to-Razorpay-order mapping is persisted.
+- [ ] **Required:** `payment.captured` and/or `order.paid` processing is implemented according to the selected Razorpay flow.
+- [ ] **Required:** Failed payment handling is implemented.
+- [ ] **Required:** Cancelled payment handling is implemented.
+- [ ] **Required:** Checkout retry behavior is implemented.
+- [ ] **Required:** Duplicate payment prevention is implemented.
+- [ ] **Required:** Refund and reconciliation policy is defined.
+- [ ] **Required:** Razorpay test-mode scenarios are completed.
+- [ ] **Required:** Production payment-method verification is completed.
+- [ ] **Required:** International card activation verification is completed if international cards are offered.
+- [ ] **Required:** Customer payment receipt/order email is implemented or explicitly deferred with owner approval.
+- [ ] **Required:** Monitoring and alerting for webhook failures is configured.
+- [ ] **Required:** Manual client-supplied payment amounts or payment methods must not mark public orders as paid.
+- [ ] **Missing:** Real Razorpay online payment gateway integration.
+- [ ] **Missing:** Razorpay webhook endpoint.
+- [ ] **Missing:** Razorpay payment verification before marking order paid.
+- [ ] **Required:** Do not claim secure online payment completion until the Razorpay provider flow exists and is verified.
 
 ## Orders
 
