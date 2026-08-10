@@ -51,7 +51,7 @@ namespace SmartSofto.Commerce.Api.Controllers
                 Email = request.Email,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
-                TenantId = request.TenantId ?? 1
+                TenantId = 1
             };
 
             var result = await _userManager.CreateAsync(user, request.Password);
@@ -61,11 +61,7 @@ namespace SmartSofto.Commerce.Api.Controllers
                 return BadRequest(result.Errors);
             }
 
-            string role = request.Role ?? "User";
-            if (role != "Admin" && role != "User")
-            {
-                role = "User";
-            }
+            const string role = "User";
             await _userManager.AddToRoleAsync(user, role);
 
             var roleName = (await _userManager.GetRolesAsync(user)).FirstOrDefault() ?? "User";

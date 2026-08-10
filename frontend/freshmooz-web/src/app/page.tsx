@@ -26,10 +26,11 @@ export default async function HomePage() {
   const products = await getHomeProducts()
   const popularProducts = getPopularProducts(products)
   const masalaCollection = getMasalaCollection(products)
+  const heroMasalaProduct = getHeroMasalaProduct(masalaCollection)
 
   return (
     <main id="main-content">
-      <HomeHero />
+      <HomeHero masalaProduct={heroMasalaProduct} />
       <FeatureStrip items={trustPoints} />
 
       <section id="categories" className="storefront-section category-browser-section">
@@ -105,4 +106,11 @@ async function getHomeProducts() {
     if (Array.isArray(items) && items.length) return normalizeStorefrontProducts(items as any)
   } catch {}
   return getFallbackStorefrontProducts()
+}
+
+function getHeroMasalaProduct(products: ReturnType<typeof getMasalaCollection>) {
+  return products.find((product) => {
+    const source = `${product.name} ${product.description} ${product.category} ${product.blurb} ${(product.tags || []).join(' ')}`.toLowerCase()
+    return /\b(masala|spice|spices|haldi|turmeric|mirch|chilli|chili|cumin|jeera|dhaniya|coriander|garam|chaat|tandoori|biryani|sambar|sabji)\b/.test(source)
+  }) || products[0]
 }
