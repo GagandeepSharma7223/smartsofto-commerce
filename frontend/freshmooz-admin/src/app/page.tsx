@@ -15,6 +15,7 @@ type Summary = {
 }
 
 type ChartPoint = { label: string; total: number }
+type MetricTone = 'neutral' | 'positive' | 'warning' | 'danger'
 
 export default function AdminDashboardPage() {
   const user = useClientUser()
@@ -62,40 +63,61 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="landing">
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-        {error && <div className="text-red-600 mb-4">{error}</div>}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {metricCard('Products', summary?.products ?? '-', 'Manage products →', '/products')}
-          {metricCard('Orders', summary?.orders ?? '-', 'Manage orders →', '/orders')}
-          {metricCard('Revenue (7d)', formatCurrency(summary?.revenue7d), 'View analytics →', '/analytics')}
-          {metricCard('Revenue (30d)', formatCurrency(summary?.revenue30d), 'View analytics →', '/analytics')}
-          {metricCard('Unpaid invoices', summary?.unpaid ?? '-', 'Invoices →', '/invoices')}
-          {metricCard('Partially paid', summary?.partial ?? '-', 'Invoices →', '/invoices')}
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:py-7">
+        <div className="mb-5">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-950">Dashboard</h1>
+          <p className="mt-1 text-sm text-slate-500">A quick view of current sales and operations.</p>
         </div>
+        {error && (
+          <div className="mb-4 rounded-lg bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700" role="alert">
+            {error}
+          </div>
+        )}
+        <section aria-label="Dashboard summary" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {metricCard('Orders', summary?.orders ?? '-', 'Manage orders', '/orders')}
+          {metricCard('Revenue (30 days)', formatCurrency(summary?.revenue30d), 'View analytics', '/analytics', 'positive')}
+          {metricCard('Unpaid invoices', summary?.unpaid ?? '-', 'Review invoices', '/invoices', 'danger')}
+          {metricCard('Partially paid invoices', summary?.partial ?? '-', 'Review invoices', '/invoices', 'warning')}
+          {metricCard('Products', summary?.products ?? '-', 'Manage products', '/products')}
+          {metricCard('Revenue (7 days)', formatCurrency(summary?.revenue7d), 'View analytics', '/analytics', 'positive')}
+        </section>
 
         {chartPoints.length > 0 && (
-          <div className="mt-8 border rounded-xl bg-white shadow-sm p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">Revenue (monthly)</h2>
-              <Link href="/analytics" className="text-[#2B7CBF] text-sm">Full analytics →</Link>
+          <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="monthly-revenue-title">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="monthly-revenue-title" className="text-base font-semibold text-slate-950">Monthly revenue</h2>
+                <p className="mt-0.5 text-xs text-slate-500">{new Date().getFullYear()} revenue by month</p>
+              </div>
+              <Link href="/analytics" className="shrink-0 text-sm font-medium text-[#2B7CBF] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6FAF3D] focus-visible:ring-offset-2">
+                Full analytics <span aria-hidden>→</span>
+              </Link>
             </div>
             <MiniBarChart points={chartPoints} />
-          </div>
+          </section>
         )}
       </main>
     </div>
   )
 }
 
-function metricCard(title: string, value: string | number, cta: string, href: string) {
+function metricCard(title: string, value: string | number, cta: string, href: string, tone: MetricTone = 'neutral') {
+  const toneClasses: Record<MetricTone, string> = {
+    neutral: 'bg-white',
+    positive: 'bg-[#f4f9ef]',
+    warning: 'bg-amber-50/70',
+    danger: 'bg-rose-50/70',
+  }
+
   return (
     <Link
       href={href}
-      className="block border rounded-xl p-5 bg-white shadow-sm transition-transform transition-shadow duration-200 ease-out hover:-translate-y-1 hover:shadow-lg hover:border-[#ffd1e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6FAF3D]">
-      <div className="text-slate-600 text-sm">{title}</div>
-      <div className="text-3xl font-extrabold">{value}</div>
-      <div className="text-[#2B7CBF] mt-2">{cta}</div>
+      className={`flex min-h-36 flex-col rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6FAF3D] focus-visible:ring-offset-2 ${toneClasses[tone]}`}>
+      <div className="text-sm font-medium text-slate-600">{title}</div>
+      <div className="mt-2 text-3xl font-extrabold leading-none tracking-tight text-slate-950 sm:text-[2rem]">{value}</div>
+      <div className="mt-auto pt-4 text-sm font-medium text-[#2B7CBF]">
+        {cta} <span aria-hidden>→</span>
+      </div>
     </Link>
   )
 }
@@ -126,20 +148,44 @@ function formatCurrency(n?: number) {
 
 function MiniBarChart({ points }: { points: ChartPoint[] }) {
   const max = Math.max(...points.map(p => p.total), 1)
-  const height = 140
-  const barW = 100 / points.length
+  const width = 960
+  const height = 230
+  const margin = { top: 18, right: 12, bottom: 32, left: 64 }
+  const chartWidth = width - margin.left - margin.right
+  const chartHeight = height - margin.top - margin.bottom
+  const slotWidth = chartWidth / points.length
+  const currency = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+    notation: 'compact',
+  })
+  const gridLines = [0, 0.5, 1]
 
   return (
-    <div className="w-full">
-      <svg viewBox={`0 0 100 ${height}`} className="w-full h-40">
+    <div className="w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-auto min-w-[640px] w-full" role="img" aria-label="Monthly revenue bar chart">
+        {gridLines.map((ratio) => {
+          const y = margin.top + chartHeight - ratio * chartHeight
+          return (
+            <g key={ratio}>
+              <line x1={margin.left} x2={width - margin.right} y1={y} y2={y} stroke="#e2e8f0" strokeWidth="1" />
+              <text x={margin.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="#64748b">
+                {currency.format(max * ratio)}
+              </text>
+            </g>
+          )
+        })}
         {points.map((p, idx) => {
-          const barHeight = (p.total / max) * (height - 20)
-          const x = idx * barW
-          const y = height - barHeight - 20
+          const barHeight = (p.total / max) * chartHeight
+          const barWidth = Math.min(slotWidth * 0.58, 48)
+          const x = margin.left + idx * slotWidth + (slotWidth - barWidth) / 2
+          const y = margin.top + chartHeight - barHeight
           return (
             <g key={p.label}>
-              <rect x={x + 1} y={y} width={barW - 3} height={barHeight} fill="#6FAF3D" opacity="0.8" rx="1.5" />
-              <text x={x + barW / 2} y={height - 6} textAnchor="middle" fontSize="3" fill="#64748b">
+              <title>{`${p.label}: ${formatCurrency(p.total)}`}</title>
+              <rect x={x} y={y} width={barWidth} height={barHeight} fill="#6FAF3D" rx="5" />
+              <text x={x + barWidth / 2} y={height - 10} textAnchor="middle" fontSize="12" fontWeight="500" fill="#475569">
                 {p.label}
               </text>
             </g>
