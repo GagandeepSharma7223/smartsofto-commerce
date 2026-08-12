@@ -265,66 +265,78 @@ function AdminOrdersPageContent() {
             <tbody>
               {filtered.map((o) => {
                 const invoiceUi = getInvoiceUi(o)
+                const invoiceExists = hasInvoice(o)
                 return (
-                  <tr key={o.id} className="border-t">
-                    <td className="px-3 py-2">
+                  <tr key={o.id} className={`border-t transition-colors ${getOrderRowClass(o.status)}`}>
+                    <td className="px-4 py-3 align-top">
                       <div className="font-semibold">{o.orderNumber || `#${o.id}`}</div>
                       <div className="text-xs text-slate-500">Business date {o.orderDate ? new Date(o.orderDate).toLocaleDateString() : '-'}</div>
                       <div className="text-xs text-slate-500">Created {o.createdAt ? new Date(o.createdAt).toLocaleString() : '-'}</div>
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3 align-top">
                       <div>{o.clientName || '-'}</div>
                     </td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-4 py-3 text-right align-top">
                       <div className="font-semibold">{formatInr(o.adjustedTotalAmount ?? o.totalAmount ?? 0)}</div>
                       {(o.adjustmentTotal || 0) > 0 && <div className="text-xs text-slate-500">Discounts {formatInr(o.adjustmentTotal || 0)}</div>}
                       <div className="text-xs text-slate-500">Cash {formatInr(o.amountPaid || 0)}</div>
                       {(o.appliedCreditAmount || 0) > 0 && <div className="text-xs text-slate-500">Credit {formatInr(o.appliedCreditAmount || 0)}</div>}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3 align-top">
                       <Badge tone={getOrderStatusTone(o.status)}>{o.status}</Badge>
                     </td>
-                    <td className="px-3 py-2">
-                      <Badge tone={invoiceUi.tone}>{invoiceUi.label}</Badge>
-                      <div className="text-xs text-slate-500">Due {formatInr(invoiceUi.due)}</div>
-                      {(o.adjustmentCount || 0) > 0 && <div className="text-xs text-slate-500">{o.adjustmentCount} adjustment{o.adjustmentCount === 1 ? '' : 's'}</div>}
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge tone={invoiceUi.tone}>{invoiceUi.label}</Badge>
+                        <div className={getDueAmountClass(invoiceUi.due)}>Due {formatInr(invoiceUi.due)}</div>
+                        {(o.adjustmentCount || 0) > 0 && <div className="text-xs text-slate-500">{o.adjustmentCount} adjustment{o.adjustmentCount === 1 ? '' : 's'}</div>}
+                      </div>
                     </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <Link
                           href={`/orders/${o.id}`}
                           title="View order details"
-                          aria-label={`View details for ${o.orderNumber || `order ${o.id}`}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
+                          aria-label={`View order details for ${o.orderNumber || `order ${o.id}`}`}
+                          className="inline-flex h-8 items-center justify-center rounded-md bg-[#6FAF3D] px-3 text-xs font-medium text-white transition-colors hover:bg-[#5F9B34]"
                         >
-                          <EyeIcon />
+                          View Order
                         </Link>
-                        <Link
-                          href={`/invoices?orderId=${o.id}`}
-                          title="View invoices"
-                          aria-label={`View invoices for ${o.orderNumber || `order ${o.id}`}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#cfe8f6] text-[#2B7CBF] hover:bg-[#e8f6fd] transition-colors"
-                        >
-                          <InvoiceIcon />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => openStatusModal(o)}
-                          title="Update order status"
-                          aria-label={`Update status for ${o.orderNumber || `order ${o.id}`}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
-                        >
-                          <StatusIcon />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openAdjustmentModal(o)}
-                          title={o.status === 'Delivered' ? 'Add discount adjustment' : 'Adjustment history'}
-                          aria-label={`Adjustment history for ${o.orderNumber || `order ${o.id}`}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors"
-                        >
-                          <AdjustmentIcon />
-                        </button>
+                        {invoiceExists && (
+                          <Link
+                            href={`/invoices?orderId=${o.id}`}
+                            title="View invoice"
+                            aria-label={`View invoice for ${o.orderNumber || `order ${o.id}`}`}
+                            className="inline-flex h-8 items-center justify-center rounded-md bg-[#2B7CBF] px-3 text-xs font-medium text-white transition-colors hover:bg-[#236aa3]"
+                          >
+                            View Invoice
+                          </Link>
+                        )}
+                        <details className="group relative">
+                          <summary className="inline-flex h-8 cursor-pointer list-none items-center justify-center rounded-md border border-slate-200 bg-white/80 px-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 [&::-webkit-details-marker]:hidden">
+                            More
+                          </summary>
+                          <div className="absolute right-0 z-20 mt-1 w-36 rounded-md border border-slate-200 bg-white p-1 text-xs shadow-lg">
+                            <button
+                              type="button"
+                              onClick={() => openStatusModal(o)}
+                              title="Update order status"
+                              aria-label={`Update status for ${o.orderNumber || `order ${o.id}`}`}
+                              className="block w-full rounded px-2 py-1.5 text-left font-medium text-slate-600 transition-colors hover:bg-slate-100"
+                            >
+                              Update Status
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openAdjustmentModal(o)}
+                              title={o.status === 'Delivered' ? 'Add discount adjustment' : 'Adjustment history'}
+                              aria-label={`Adjustment history for ${o.orderNumber || `order ${o.id}`}`}
+                              className="block w-full rounded px-2 py-1.5 text-left font-medium text-amber-700 transition-colors hover:bg-amber-50"
+                            >
+                              Adjustments
+                            </button>
+                          </div>
+                        </details>
                       </div>
                     </td>
                   </tr>
@@ -548,6 +560,14 @@ function getOrderStatusTone(raw: string | undefined): 'gray' | 'green' | 'red' {
   return 'gray'
 }
 
+function getOrderRowClass(raw: string | undefined) {
+  const status = String(raw || '').trim().toLowerCase()
+  if (status === 'delivered') return 'bg-green-50/60 hover:bg-green-50'
+  if (status === 'pending') return 'bg-amber-50/60 hover:bg-amber-50'
+  if (status === 'cancelled') return 'bg-rose-50/60 hover:bg-rose-50'
+  return 'bg-white hover:bg-slate-50'
+}
+
 function getInvoiceUi(order: AdminOrder): { label: string; tone: 'gray' | 'green' | 'amber'; due: number } {
   const total = Number(order.adjustedTotalAmount ?? order.totalAmount ?? 0)
   const paid = Number(order.amountPaid || 0)
@@ -566,40 +586,14 @@ function getInvoiceUi(order: AdminOrder): { label: string; tone: 'gray' | 'green
   return { label, tone, due }
 }
 
-function EyeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
+function getDueAmountClass(due: number) {
+  if (due > 0) {
+    return 'inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-100'
+  }
+
+  return 'text-xs text-slate-500'
 }
 
-function InvoiceIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M7 3h8l4 4v14H7z" />
-      <path d="M15 3v5h5" />
-      <path d="M10 13h6" />
-      <path d="M10 17h6" />
-    </svg>
-  )
-}
-
-function StatusIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-    </svg>
-  )
-}
-
-function AdjustmentIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 3v18" />
-      <path d="M17 7.5c0-1.93-2.24-3.5-5-3.5S7 5.57 7 7.5 9.24 11 12 11s5 1.57 5 3.5-2.24 3.5-5 3.5-5-1.57-5-3.5" />
-    </svg>
-  )
+function hasInvoice(order: AdminOrder) {
+  return Boolean(String(order.invoiceStatus || '').trim())
 }

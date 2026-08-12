@@ -43,6 +43,17 @@ namespace SmartSofto.Commerce.Domain.Models
 
         public DateTime? UpdatedAt { get; set; }
 
+        public int? SellerProfileId { get; set; }
+
+        [ForeignKey("SellerProfileId")]
+        public SellerProfile? SellerProfile { get; set; }
+
+        [StringLength(100)]
+        public string? BuyerBusinessName { get; set; }
+
+        [StringLength(20)]
+        public string? BuyerGstin { get; set; }
+
         [NotMapped]
         public string? OrderNumber { get; set; }
 

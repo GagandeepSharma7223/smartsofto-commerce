@@ -12,12 +12,14 @@ namespace SmartSofto.Commerce.Api.Controllers
     public class AdminController : ControllerBase
     {
         private readonly IAdminService _adminService;
+        private readonly IInvoicePdfService _invoicePdfService;
         private readonly ICurrentTenantService _tenantService;
         private readonly ICurrentUserService _currentUser;
 
-        public AdminController(IAdminService adminService, ICurrentTenantService tenantService, ICurrentUserService currentUser)
+        public AdminController(IAdminService adminService, IInvoicePdfService invoicePdfService, ICurrentTenantService tenantService, ICurrentUserService currentUser)
         {
             _adminService = adminService;
+            _invoicePdfService = invoicePdfService;
             _tenantService = tenantService;
             _currentUser = currentUser;
         }
@@ -99,11 +101,11 @@ namespace SmartSofto.Commerce.Api.Controllers
 
         // List invoices (optionally by order)
         [HttpGet("invoices")]
-        public async Task<IActionResult> GetInvoices([FromQuery] int? orderId = null)
+        public async Task<IActionResult> GetInvoices([FromQuery] int? orderId = null, [FromQuery] string? orderNumber = null)
         {
             var tenantId = _tenantService.TenantId;
             if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
-            var invoices = await _adminService.GetInvoicesAsync(tenantId.Value, orderId);
+            var invoices = await _adminService.GetInvoicesAsync(tenantId.Value, orderId, orderNumber);
             return Ok(invoices);
         }
 
@@ -116,12 +118,31 @@ namespace SmartSofto.Commerce.Api.Controllers
 
             try
             {
-                var invoice = await _adminService.CreateInvoiceAsync(tenantId.Value, request);
+                var invoice = await _adminService.CreateInvoiceAsync(tenantId.Value, request, _currentUser.UserId);
                 return CreatedAtAction(nameof(GetInvoices), new { id = invoice.Id }, invoice);
             }
             catch (InvalidOperationException ex)
             {
                 return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("invoices/{invoiceId}/pdf")]
+        public async Task<IActionResult> DownloadInvoicePdf(int invoiceId)
+        {
+            var tenantId = _tenantService.TenantId;
+            if (!tenantId.HasValue) return Unauthorized("Tenant claim missing.");
+
+            try
+            {
+                var pdf = await _invoicePdfService.GenerateInvoicePdfAsync(tenantId.Value, invoiceId);
+                if (pdf == null) return NotFound();
+
+                return File(pdf.Content, pdf.ContentType, pdf.FileName);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ex.Message);
             }
         }
 
@@ -209,5 +230,6 @@ namespace SmartSofto.Commerce.Api.Controllers
                 return BadRequest(ex.Message);
             }
         }
+
     }
 }

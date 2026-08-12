@@ -229,6 +229,8 @@ export async function apiCreateProduct(payload: {
   sku: string
   price: number
   costPrice: number
+  gstRate?: number
+  hsnCode?: string
   quantity: number
   type: number
   unit: number
@@ -248,6 +250,8 @@ export async function apiCreateProduct(payload: {
       sku: payload.sku,
       price: payload.price,
       costPrice: payload.costPrice,
+      gstRate: payload.gstRate ?? 0,
+      hsnCode: payload.hsnCode?.trim() || null,
       quantity: payload.quantity,
       type: payload.type,
       unit: payload.unit,
@@ -692,8 +696,12 @@ export type AdminInvoice = {
   orderInvoiceStatus?: number
 }
 
-export async function apiAdminInvoices(orderId?: number): Promise<AdminInvoice[]> {
-  const qs = orderId ? `?orderId=${orderId}` : ''
+export async function apiAdminInvoices(filters?: { orderId?: number; orderNumber?: string }): Promise<AdminInvoice[]> {
+  const params = new URLSearchParams()
+  if (filters?.orderId) params.set('orderId', String(filters.orderId))
+  const orderNumber = filters?.orderNumber?.trim()
+  if (orderNumber) params.set('orderNumber', orderNumber)
+  const qs = params.toString() ? `?${params.toString()}` : ''
   const res = await fetch(resolveUrl(`/api/admin/invoices${qs}`), {
     cache: 'no-store',
     headers: authHeaders()
@@ -724,6 +732,15 @@ export async function apiAdminCreateInvoice(input: {
   })
   if (!res.ok) throw new Error('Failed to create invoice')
   return res.json()
+}
+
+export async function apiAdminDownloadInvoicePdf(invoiceId: number): Promise<Blob> {
+  const res = await fetch(resolveUrl(`/api/admin/invoices/${invoiceId}/pdf`), {
+    cache: 'no-store',
+    headers: authHeaders()
+  })
+  if (!res.ok) throw new Error('Failed to download invoice PDF')
+  return res.blob()
 }
 
 
@@ -1069,6 +1086,7 @@ export type AdminClient = {
   name: string
   referenceName: string
   companyName?: string | null
+  gstin?: string | null
   email?: string | null
   phoneNumber?: string | null
   clientType: string

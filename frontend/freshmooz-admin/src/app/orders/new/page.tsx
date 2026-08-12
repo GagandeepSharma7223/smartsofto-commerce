@@ -1,5 +1,6 @@
 "use client"
 import LoadingState from '@/components/LoadingState'
+import AdminAlert from '@/components/AdminAlert'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -27,6 +28,7 @@ type OrderLine = {
   name: string
   price: number
   quantity: number
+  quantityInput?: string
   unitPrice: number
   discountAmount: number
   isLooseQuantity: boolean
@@ -212,8 +214,10 @@ export default function AdminNewOrderPage() {
     if (!q) return clients.slice(0, 8)
     return clients.filter((client) =>
       String(client.name || '').toLowerCase().includes(q) ||
+      String(client.referenceName || '').toLowerCase().includes(q) ||
       String(client.email || '').toLowerCase().includes(q) ||
-      String(client.phoneNumber || '').toLowerCase().includes(q)
+      String(client.phoneNumber || '').toLowerCase().includes(q) ||
+      String(client.companyName || '').toLowerCase().includes(q)
     ).slice(0, 8)
   }, [clientQuery, clients])
 
@@ -277,7 +281,7 @@ export default function AdminNewOrderPage() {
     if (!line) return
 
     if (quantity <= 0) {
-      setLines(prev => prev.filter(l => l.productId !== productId))
+      updateLine(productId, { quantity: quantityStep(line), quantityInput: undefined })
       return
     }
 
@@ -285,7 +289,45 @@ export default function AdminNewOrderPage() {
       return
     }
 
-    updateLine(productId, { quantity: line.isLooseQuantity ? roundLooseQuantity(quantity) : quantity })
+    updateLine(productId, { quantity: line.isLooseQuantity ? roundLooseQuantity(quantity) : quantity, quantityInput: undefined })
+  }
+
+  const updateQuantityInput = (line: OrderLine, value: string) => {
+    if (value === '') {
+      updateLine(line.productId, { quantityInput: value })
+      return
+    }
+
+    const quantity = Number(value)
+    if (!Number.isFinite(quantity)) {
+      updateLine(line.productId, { quantityInput: value })
+      return
+    }
+
+    if (quantity <= 0 || (!line.isLooseQuantity && !Number.isInteger(quantity))) {
+      updateLine(line.productId, { quantityInput: value })
+      return
+    }
+
+    updateLine(line.productId, {
+      quantity: line.isLooseQuantity ? roundLooseQuantity(quantity) : quantity,
+      quantityInput: value
+    })
+  }
+
+  const normalizeQuantityInput = (line: OrderLine) => {
+    if (line.quantityInput === undefined) return
+
+    const quantity = Number(line.quantityInput)
+    if (!Number.isFinite(quantity) || quantity <= 0 || (!line.isLooseQuantity && !Number.isInteger(quantity))) {
+      updateLine(line.productId, { quantityInput: undefined })
+      return
+    }
+
+    updateLine(line.productId, {
+      quantity: line.isLooseQuantity ? roundLooseQuantity(quantity) : quantity,
+      quantityInput: undefined
+    })
   }
 
   const removeLine = (productId: number) => {
@@ -455,15 +497,14 @@ export default function AdminNewOrderPage() {
 
   return (
     <Shell title="New Order">
-      {error && <div className="text-red-600 mb-3">{error}</div>}
-      <form onSubmit={submit} noValidate className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
+      {error && <AdminAlert tone="error">{error}</AdminAlert>}
+      <form onSubmit={submit} noValidate className="space-y-4">
           <div className="border rounded-xl bg-white p-4 space-y-3">
             <div className="font-semibold">Client</div>
             <div className="relative">
               <input
                 className={fieldClass(!!formErrors.clientId)}
-                placeholder="Search client by name, email, or phone"
+                placeholder="Search client by name, company, email, or phone"
                 value={clientQuery}
                 onFocus={() => setClientOpen(true)}
                 onChange={(e) => {
@@ -498,7 +539,9 @@ export default function AdminNewOrderPage() {
                       }}
                     >
                       <div className="font-medium text-slate-900">{client.name}</div>
-                      <div className="text-xs text-slate-500">{client.email || 'No email'}{client.phoneNumber ? ` - ${client.phoneNumber}` : ''}</div>
+                      <div className="text-xs text-slate-500">
+                        {[client.referenceName, client.companyName, client.email, client.phoneNumber].filter(Boolean).join(' - ') || 'No contact details'}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -569,158 +612,7 @@ export default function AdminNewOrderPage() {
           </div>
 
           <div className="border rounded-xl bg-white p-4 space-y-3">
-            <div className="font-semibold">Order Details</div>
-            <div>
-              <label className="block text-sm mb-1">Order Date</label>
-              <input
-                type="date"
-                className={fieldClass(!!formErrors.orderDate)}
-                value={orderDate}
-                min={backdateMin()}
-                max={todayInput()}
-                onChange={(e) => {
-                  const value = e.target.value
-                  setOrderDate(value)
-                  const tooOld = value < todayInput() && daysBetween(value, todayInput()) > 7
-                  setFormErrors((prev) => ({
-                    ...prev,
-                    orderDate: !value ? prev.orderDate : value > todayInput() || tooOld ? prev.orderDate : undefined,
-                    notes: value < todayInput() && isBlank(notes) ? prev.notes : undefined
-                  }))
-                }}
-              />
-              <FieldError error={formErrors.orderDate} />
-            </div>
-            {isBackdatedOrder && (
-              <div className={`rounded-lg border px-3 py-2 text-sm ${orderDateTooOld ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-                {orderDateTooOld
-                  ? 'Backdated orders older than 7 days are not allowed.'
-                  : 'This is a backdated order entry. Please add a note.'}
-              </div>
-            )}
-            <div>
-              <label className="block text-sm mb-1">Order Status</label>
-              <select
-                className="w-full rounded-md border border-slate-300 px-3 py-2"
-                value={initialOrderStatus}
-                onChange={(e) => setInitialOrderStatus(e.target.value)}
-              >
-                <option value="">Default (Placed)</option>
-                {ORDER_STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-              <div className="font-medium text-slate-900">Payment & Credit</div>
-              <div className="grid gap-3 sm:grid-cols-4">
-                <div>
-                  <label className="block text-sm mb-1">Payment Method</label>
-                  <select
-                    className={fieldClass(!!formErrors.paymentMethod)}
-                    value={paymentMethod}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setPaymentMethod(value)
-                      setFormErrors((prev) => ({ ...prev, paymentMethod: value ? undefined : prev.paymentMethod }))
-                    }}
-                  >
-                    {PAYMENT_METHOD_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                  <FieldError error={formErrors.paymentMethod} />
-                </div>
-                <div>
-                  <label className="block text-sm mb-1">Payment Amount</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className={fieldClass(!!formErrors.paymentAmount)}
-                    placeholder="0.00"
-                    value={paymentAmount}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setPaymentAmount(value)
-                      const numeric = Number(value || 0)
-                      setFormErrors((prev) => ({
-                        ...prev,
-                        paymentAmount: !value || (Number.isFinite(numeric) && numeric >= 0 && numeric <= total) ? undefined : prev.paymentAmount
-                      }))
-                    }}
-                  />
-                  <FieldError error={formErrors.paymentAmount} />
-                </div>
-                <div>
-                  <label className="block text-sm mb-1">Payment Date</label>
-                  <input
-                    type="date"
-                    className={fieldClass(!!formErrors.paymentDate)}
-                    value={paymentDate}
-                    min={orderDate < backdateMin() ? orderDate : backdateMin()}
-                    max={todayInput()}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setPaymentDate(value)
-                      setFormErrors((prev) => ({
-                        ...prev,
-                        paymentDate: !value || (value <= todayInput() && value >= orderDate) ? undefined : prev.paymentDate
-                      }))
-                    }}
-                  />
-                  <FieldError error={formErrors.paymentDate} />
-                </div>
-                <div>
-                  <label className="block text-sm mb-1">Apply Credit</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max={availableCredit}
-                    className={fieldClass(!!formErrors.applyCreditAmount)}
-                    placeholder="0.00"
-                    value={applyCreditAmount}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setApplyCreditAmount(value)
-                      const numeric = Number(value || 0)
-                      setFormErrors((prev) => ({
-                        ...prev,
-                        applyCreditAmount: !value || (!Number.isNaN(numeric) && numeric >= 0 && numeric <= availableCredit) ? undefined : prev.applyCreditAmount
-                      }))
-                    }}
-                  />
-                  <FieldError error={formErrors.applyCreditAmount} />
-                  <div className="mt-1 text-xs text-slate-500">Available: {formatInr(availableCredit)}</div>
-                </div>
-              </div>
-              <div className="grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                <div>Recorded payment: <span className="font-medium text-slate-900">{formatInr(hasInitialPayment ? paymentAmountValue : 0)}</span></div>
-                <div>Applied credit: <span className="font-medium text-slate-900">{formatInr(applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)}</span></div>
-                <div>Settled on create: <span className="font-medium text-slate-900">{formatInr((hasInitialPayment ? paymentAmountValue : 0) + (applyCreditAmountValue > 0 ? applyCreditAmountValue : 0))}</span></div>
-                <div>Calculated invoice status: <span className="font-medium text-slate-900">{(paymentAmountValue + applyCreditAmountValue) <= 0 ? 'Unpaid' : (paymentAmountValue + applyCreditAmountValue) >= total ? 'Paid' : 'Partially Paid'}</span></div>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm mb-1">Note</label>
-              <textarea
-                className={fieldClass(!!formErrors.notes)}
-                rows={3}
-                placeholder="Add context for this order"
-                value={notes}
-                onChange={(e) => {
-                  const value = e.target.value
-                  setNotes(value)
-                  setFormErrors((prev) => ({ ...prev, notes: value.trim() ? undefined : prev.notes }))
-                }}
-              />
-              <FieldError error={formErrors.notes} />
-            </div>
-          </div>
-
-          <div className="border rounded-xl bg-white p-4 space-y-3">
-            <div className="font-semibold">Add products</div>
+            <div className="font-semibold">Products</div>
             <div className="relative">
               <input
                 className="w-full rounded-md border border-slate-300 px-3 py-2"
@@ -761,13 +653,6 @@ export default function AdminNewOrderPage() {
                 </div>
               )}
             </div>
-            {lines.length > 0 && (
-              <div className="text-xs text-slate-500">Selected items appear in the order table below. Loose-quantity products support up to 3 decimal places.</div>
-            )}
-          </div>
-
-          <div className="border rounded-xl bg-white p-4 space-y-3">
-            <div className="font-semibold">Items</div>
             <FieldError error={formErrors.items} />
             {lines.length === 0 ? (
               <div className="text-sm text-slate-600">No items added yet.</div>
@@ -821,8 +706,9 @@ export default function AdminNewOrderPage() {
                                 step={l.isLooseQuantity ? '0.001' : '1'}
                                 min={l.isLooseQuantity ? '0.001' : '1'}
                                 className="w-20 text-center border-l border-r"
-                                value={l.quantity}
-                                onChange={(e) => updateQty(l.productId, Number(e.target.value || 0))}
+                                value={l.quantityInput ?? String(l.quantity)}
+                                onChange={(e) => updateQuantityInput(l, e.target.value)}
+                                onBlur={() => normalizeQuantityInput(l)}
                               />
                               <button type="button" className="px-2 py-1" onClick={() => updateQty(l.productId, l.quantity + quantityStep(l))}>+</button>
                             </div>
@@ -836,38 +722,182 @@ export default function AdminNewOrderPage() {
                     })}
                   </tbody>
                 </table>
+                <div className="mt-2 text-xs text-slate-500">Loose-quantity products support up to 3 decimal places.</div>
               </div>
             )}
           </div>
-        </div>
 
-        <aside className="space-y-4">
-          <div className="border rounded-xl bg-white p-4 space-y-2">
-            <div className="font-semibold">Order Summary</div>
-            <div className="flex items-center justify-between text-sm"><span>Subtotal</span><span>{formatInr(subtotal)}</span></div>
-            <div className="flex items-center justify-between text-sm"><span>Discounts</span><span>{formatInr(discountTotal)}</span></div>
-            <div className="flex items-center justify-between font-semibold"><span>Total</span><span>{formatInr(total)}</span></div>
-            <div className="flex items-center justify-between text-sm"><span>Applied credit</span><span>{formatInr(applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)}</span></div>
-            <div className="flex items-center justify-between text-sm"><span>Initial cash payment</span><span>{formatInr(hasInitialPayment ? paymentAmountValue : 0)}</span></div>
-            <div className="flex items-center justify-between text-sm"><span>Balance after create</span><span>{formatInr(Math.max(total - ((hasInitialPayment ? paymentAmountValue : 0) + (applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)), 0))}</span></div>
-            <button
-              type="button"
-              className="mt-2 w-full border rounded-md px-3 py-2 text-sm hover:text-[#4DB6E2] hover:border-[#4DB6E2]"
-              onClick={() => recalcPricing()}
-              disabled={pricingLoading}
-            >
-              {pricingLoading ? 'Recalculating...' : 'Recalculate'}
-            </button>
+          <div className="border rounded-xl bg-white p-4 space-y-3">
+            <div className="font-semibold">Order Details</div>
+            <div>
+              <label className="block text-sm mb-1">Order Date</label>
+              <input
+                type="date"
+                className={fieldClass(!!formErrors.orderDate)}
+                value={orderDate}
+                min={backdateMin()}
+                max={todayInput()}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setOrderDate(value)
+                  const tooOld = value < todayInput() && daysBetween(value, todayInput()) > 7
+                  setFormErrors((prev) => ({
+                    ...prev,
+                    orderDate: !value ? prev.orderDate : value > todayInput() || tooOld ? prev.orderDate : undefined,
+                    notes: value < todayInput() && isBlank(notes) ? prev.notes : undefined
+                  }))
+                }}
+              />
+              <FieldError error={formErrors.orderDate} />
+            </div>
+            {isBackdatedOrder && (
+              <div className={`rounded-lg border px-3 py-2 text-sm ${orderDateTooOld ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                {orderDateTooOld
+                  ? 'Backdated orders older than 7 days are not allowed.'
+                  : 'This is a backdated order entry. Please add a note.'}
+              </div>
+            )}
+            <div>
+              <label className="block text-sm mb-1">Order Status</label>
+              <select
+                className="w-full rounded-md border border-slate-300 px-3 py-2"
+                value={initialOrderStatus}
+                onChange={(e) => setInitialOrderStatus(e.target.value)}
+              >
+                <option value="">Default (Placed)</option>
+                {ORDER_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Note</label>
+              <textarea
+                className={fieldClass(!!formErrors.notes)}
+                rows={3}
+                placeholder="Add context for this order"
+                value={notes}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setNotes(value)
+                  setFormErrors((prev) => ({ ...prev, notes: value.trim() ? undefined : prev.notes }))
+                }}
+              />
+              <FieldError error={formErrors.notes} />
+            </div>
           </div>
+
+          <div className="border rounded-xl bg-slate-50 p-4 space-y-3">
+            <div className="font-semibold text-slate-900">Payment & Credit</div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="block text-sm mb-1">Payment Method</label>
+                <select
+                  className={fieldClass(!!formErrors.paymentMethod)}
+                  value={paymentMethod}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setPaymentMethod(value)
+                    setFormErrors((prev) => ({ ...prev, paymentMethod: value ? undefined : prev.paymentMethod }))
+                  }}
+                >
+                  {PAYMENT_METHOD_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <FieldError error={formErrors.paymentMethod} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Payment Amount</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className={fieldClass(!!formErrors.paymentAmount)}
+                  placeholder="0.00"
+                  value={paymentAmount}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setPaymentAmount(value)
+                    const numeric = Number(value || 0)
+                    setFormErrors((prev) => ({
+                      ...prev,
+                      paymentAmount: !value || (Number.isFinite(numeric) && numeric >= 0 && numeric <= total) ? undefined : prev.paymentAmount
+                    }))
+                  }}
+                />
+                <FieldError error={formErrors.paymentAmount} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Payment Date</label>
+                <input
+                  type="date"
+                  className={fieldClass(!!formErrors.paymentDate)}
+                  value={paymentDate}
+                  min={orderDate < backdateMin() ? orderDate : backdateMin()}
+                  max={todayInput()}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setPaymentDate(value)
+                    setFormErrors((prev) => ({
+                      ...prev,
+                      paymentDate: !value || (value <= todayInput() && value >= orderDate) ? undefined : prev.paymentDate
+                    }))
+                  }}
+                />
+                <FieldError error={formErrors.paymentDate} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Apply Credit</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={availableCredit}
+                  className={fieldClass(!!formErrors.applyCreditAmount)}
+                  placeholder="0.00"
+                  value={applyCreditAmount}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setApplyCreditAmount(value)
+                    const numeric = Number(value || 0)
+                    setFormErrors((prev) => ({
+                      ...prev,
+                      applyCreditAmount: !value || (!Number.isNaN(numeric) && numeric >= 0 && numeric <= availableCredit) ? undefined : prev.applyCreditAmount
+                    }))
+                  }}
+                />
+                <FieldError error={formErrors.applyCreditAmount} />
+                <div className="mt-1 text-xs text-slate-500">Available: {formatInr(availableCredit)}</div>
+              </div>
+            </div>
+          </div>
+
+        <div className="border rounded-xl bg-white p-4 space-y-2">
+          <div className="font-semibold">Order Summary</div>
+          <div className="flex items-center justify-between text-sm"><span>Subtotal</span><span>{formatInr(subtotal)}</span></div>
+          <div className="flex items-center justify-between text-sm"><span>Discounts</span><span>{formatInr(discountTotal)}</span></div>
+          <div className="flex items-center justify-between text-sm"><span>Applied credit</span><span>{formatInr(applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)}</span></div>
+          <div className="flex items-center justify-between text-sm"><span>Payment</span><span>{formatInr(hasInitialPayment ? paymentAmountValue : 0)}</span></div>
+          <div className="flex items-center justify-between font-semibold"><span>Total</span><span>{formatInr(total)}</span></div>
+          <div className="flex items-center justify-between text-sm"><span>Balance after create</span><span>{formatInr(Math.max(total - ((hasInitialPayment ? paymentAmountValue : 0) + (applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)), 0))}</span></div>
           <button
-            type="submit"
-            disabled={saving}
-            className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white px-4 py-2 rounded-md w-full disabled:opacity-60"
+            type="button"
+            className="mt-2 w-full border rounded-md px-3 py-2 text-sm hover:text-[#4DB6E2] hover:border-[#4DB6E2]"
+            onClick={() => recalcPricing()}
+            disabled={pricingLoading}
           >
-            {saving ? 'Placing...' : 'Place Order'}
+            {pricingLoading ? 'Recalculating...' : 'Recalculate'}
           </button>
-          <Link href="/orders" className="text-[#2B7CBF] text-sm block text-center">Back to orders</Link>
-        </aside>
+        </div>
+        <button
+          type="submit"
+          disabled={saving}
+          className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white px-4 py-2 rounded-md w-full disabled:opacity-60"
+        >
+          {saving ? 'Placing...' : 'Place Order'}
+        </button>
+        <Link href="/orders" className="text-[#2B7CBF] text-sm block text-center">Back to orders</Link>
       </form>
 
       {showAddressModal && (
@@ -1004,8 +1034,7 @@ function daysBetween(from: string, to: string) {
 }
 
 function formatClientOption(client: AdminClient) {
-  const details = [client.email, client.phoneNumber].filter(Boolean).join(' - ')
-  return details ? `${client.name} (${details})` : client.name
+  return client.companyName ? `${client.name} — ${client.companyName}` : client.name
 }
 
 

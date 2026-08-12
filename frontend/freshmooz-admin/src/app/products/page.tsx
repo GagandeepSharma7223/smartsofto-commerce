@@ -3,7 +3,7 @@ import LoadingState from '@/components/LoadingState'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { resolveUrl, resolveImagePath, apiArchiveProduct, apiRestoreProduct, apiDeleteProduct } from '@/lib/api'
+import { resolveUrl, resolveImagePath, apiDeleteProduct } from '@/lib/api'
 import { useClientUser, getToken } from '@/lib/auth'
 import { confirmAction, showError, showSuccess } from '@/lib/alert'
 
@@ -18,6 +18,24 @@ type UiProduct = {
   isActive?: boolean
 }
 
+const LOW_STOCK_QUANTITY = 5
+
+function getRowTone(quantity?: number) {
+  const value = quantity ?? 0
+  if (value === 0) {
+    return 'border-l-4 border-l-rose-300 bg-rose-50/80 hover:bg-rose-50'
+  }
+  if (value > 0 && value <= LOW_STOCK_QUANTITY) {
+    return 'border-l-4 border-l-amber-300 bg-amber-50/80 hover:bg-amber-50'
+  }
+  return 'hover:bg-slate-50/70'
+}
+
+function formatQuantity(quantity?: number) {
+  if (quantity === undefined || Number.isNaN(quantity)) return '—'
+  return Number.isInteger(quantity) ? String(quantity) : quantity.toFixed(3).replace(/\.?0+$/, '')
+}
+
 export default function AdminProductsPage() {
   const user = useClientUser()
   const [items, setItems] = useState<UiProduct[] | null>(null)
@@ -26,7 +44,7 @@ export default function AdminProductsPage() {
   const token = getToken() || undefined
   const [showInactive, setShowInactive] = useState(false)
   const [query, setQuery] = useState('')
-  const [sort, setSort] = useState<'name_asc' | 'name_desc' | 'price_asc' | 'price_desc' | 'qty_desc' | 'qty_asc'>('name_asc')
+  const [sort, setSort] = useState<'name_asc' | 'name_desc' | 'qty_desc' | 'qty_asc'>('name_asc')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<10 | 20 | 50>(20)
 
@@ -121,8 +139,6 @@ export default function AdminProductsPage() {
               >
                 <option value="name_asc">Name ↑</option>
                 <option value="name_desc">Name ↓</option>
-                <option value="price_asc">Price ↑</option>
-                <option value="price_desc">Price ↓</option>
                 <option value="qty_desc">Qty ↓</option>
                 <option value="qty_asc">Qty ↑</option>
               </select>
@@ -139,17 +155,14 @@ export default function AdminProductsPage() {
                 <option value={50}>50 / page</option>
               </select>
             </div>
-            <div className="overflow-auto border rounded-xl bg-white">
+            <div className="overflow-auto border rounded-xl bg-white shadow-sm">
               <table className="min-w-full text-sm">
                 <thead className="bg-slate-50 text-slate-700">
                   <tr>
-                    <th className="text-left px-3 py-2">Image</th>
-                    <th className="text-left px-3 py-2">Name</th>
-                    <th className="text-left px-3 py-2">SKU</th>
-                    <th className="text-right px-3 py-2">Price (₹)</th>
-                    <th className="text-right px-3 py-2">Qty</th>
-                    <th className="text-left px-3 py-2">Status</th>
-                    <th className="text-left px-3 py-2">Actions</th>
+                    <th className="w-24 text-left px-4 py-3 font-semibold">Image</th>
+                    <th className="text-left px-4 py-3 font-semibold">Product name</th>
+                    <th className="w-32 text-right px-4 py-3 font-semibold">Quantity</th>
+                    <th className="w-44 text-right px-4 py-3 font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -163,10 +176,6 @@ export default function AdminProductsPage() {
                       switch (sort) {
                         case 'name_desc':
                           return b.name.localeCompare(a.name)
-                        case 'price_asc':
-                          return a.price - b.price
-                        case 'price_desc':
-                          return b.price - a.price
                         case 'qty_asc':
                           return (a.quantity || 0) - (b.quantity || 0)
                         case 'qty_desc':
@@ -177,32 +186,34 @@ export default function AdminProductsPage() {
                     })
                     .slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
                     .map((p) => (
-                      <tr key={p.id} className="border-t">
-                        <td className="px-3 py-2">
+                      <tr key={p.id} className={`border-t transition-colors ${getRowTone(p.quantity)}`}>
+                        <td className="px-4 py-3 align-middle">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           {p.image ? (
-                            <img src={p.image} alt="" className="h-12 w-16 object-cover rounded" />
+                            <img src={p.image} alt={`${p.name} product image`} className="h-16 w-20 rounded-lg border border-white/70 object-cover shadow-sm" />
                           ) : (
-                            <div className="h-12 w-16 bg-slate-100 rounded grid place-items-center text-slate-400">—</div>
+                            <div className="grid h-16 w-20 place-items-center rounded-lg border border-slate-200 bg-slate-100 text-slate-400">—</div>
                           )}
                         </td>
-                        <td className="px-3 py-2">
-                          <div className="font-medium">{p.name}</div>
-                          <div className="text-slate-500 line-clamp-1 max-w-[420px]">{p.description}</div>
+                        <td className="px-4 py-3 align-middle">
+                          <div className="font-semibold text-slate-900">{p.name}</div>
+                          {p.description && (
+                            <div className="mt-1 line-clamp-1 max-w-[620px] text-slate-500">{p.description}</div>
+                          )}
                         </td>
-                        <td className="px-3 py-2">{p.sku || '—'}</td>
-                        <td className="px-3 py-2 text-right">{p.price}</td>
-                        <td className="px-3 py-2 text-right">{p.quantity ?? '—'}</td>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
+                        <td className="px-4 py-3 text-right align-middle">
+                          <span className={`font-semibold tabular-nums ${p.quantity === 0 ? 'text-rose-700' : 'text-slate-800'}`}>{formatQuantity(p.quantity)}</span>
+                        </td>
+                        <td className="px-4 py-3 align-middle">
+                          <div className="flex items-center justify-end gap-2">
                             <Link
                               href={`/products/${p.id}/edit`}
-                              className="px-2 py-1 border border-slate-300 rounded text-slate-700 hover:text-[#4DB6E2] hover:border-[#4DB6E2] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#4DB6E2]"
+                              className="rounded-md bg-[#6FAF3D] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#5F9B34] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#4DB6E2]"
                             >
                               Edit
                             </Link>
                             <button
-                              className="px-2 py-1 border rounded text-red-600 border-red-200 hover:text-red-700 hover:border-red-500 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
+                              className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 transition-colors hover:border-red-400 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
                               disabled={deleting === p.id}
                               onClick={async () => {
                                 const confirmed = await confirmAction({

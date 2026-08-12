@@ -463,6 +463,8 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     InvoiceDate = businessOrderDate,
                     CreatedAt = DateTime.UtcNow,
                     CreatedUtc = DateTime.UtcNow,
+                    BuyerBusinessName = SnapshotBuyerBusinessName(client),
+                    BuyerGstin = SnapshotBuyerGstin(client),
                     TenantId = order.TenantId
                 };
                 _context.Invoices.Add(invoice);
@@ -784,6 +786,8 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     InvoiceDate = businessOrderDate,
                     CreatedAt = DateTime.UtcNow,
                     CreatedUtc = DateTime.UtcNow,
+                    BuyerBusinessName = SnapshotBuyerBusinessName(client),
+                    BuyerGstin = SnapshotBuyerGstin(client),
                     TenantId = order.TenantId
                 };
                 _context.Invoices.Add(invoice);
@@ -880,6 +884,8 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 Notes = request.Notes,
                 CreatedAt = DateTime.UtcNow,
                 CreatedUtc = DateTime.UtcNow,
+                BuyerBusinessName = SnapshotBuyerBusinessName(order.Client ?? await _context.Clients.FirstOrDefaultAsync(c => c.Id == order.ClientId && c.TenantId == order.TenantId)),
+                BuyerGstin = SnapshotBuyerGstin(order.Client ?? await _context.Clients.FirstOrDefaultAsync(c => c.Id == order.ClientId && c.TenantId == order.TenantId)),
                 TenantId = order.TenantId
             };
 
@@ -888,6 +894,16 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             order.InvoiceStatus = ResolveInvoiceStatus(order.TotalAmount, order.AmountPaid, order.AppliedCreditAmount);
             order.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+        }
+
+        private static string? SnapshotBuyerBusinessName(Client? client)
+        {
+            return string.IsNullOrWhiteSpace(client?.CompanyName) ? null : client.CompanyName.Trim();
+        }
+
+        private static string? SnapshotBuyerGstin(Client? client)
+        {
+            return string.IsNullOrWhiteSpace(client?.Gstin) ? null : client.Gstin.Trim();
         }
 
         private async Task ApplyInitialCreditAsync(Order order, MultiOrderRequest request)

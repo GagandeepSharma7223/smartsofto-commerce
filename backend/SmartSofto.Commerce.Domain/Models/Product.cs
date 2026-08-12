@@ -46,6 +46,13 @@ namespace SmartSofto.Commerce.Domain.Models
         public decimal CostPrice { get; set; }
 
         [Required]
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal GstRate { get; set; } = 0;
+
+        [StringLength(20)]
+        public string? HsnCode { get; set; }
+
+        [Required]
         [Column(TypeName = "decimal(18,3)")]
         public decimal Quantity { get; set; }
 

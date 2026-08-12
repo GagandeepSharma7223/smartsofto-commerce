@@ -1,9 +1,10 @@
 "use client"
 import LoadingState from '@/components/LoadingState'
+import AdminAlert from '@/components/AdminAlert'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { apiAdminInvoices, apiAdminCreateInvoice, apiAdminOrderAdjustments, type AdminInvoice, type OrderAdjustment } from '@/lib/api'
+import { apiAdminInvoices, apiAdminCreateInvoice, apiAdminDownloadInvoicePdf, type AdminInvoice } from '@/lib/api'
 import { useClientUser } from '@/lib/auth'
 import { FieldError, fieldClass } from '@/lib/form-ui'
 
@@ -21,18 +22,20 @@ type InvoiceGroup = {
   orderSettledAmount?: number
   invoiceStatus?: number
   paymentCount: number
+  latestInvoiceId?: number
   latestInvoiceNumber?: string
   latestCreatedAt?: string
   latestPaymentMethod?: number
   latestReference?: string
 }
 
-export default function AdminInvoicesPage({ searchParams }: { searchParams: { orderId?: string } }) {
+export default function AdminInvoicesPage({ searchParams }: { searchParams: { orderId?: string; orderNumber?: string } }) {
   const user = useClientUser()
   const [rows, setRows] = useState<AdminInvoice[] | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [orderFilter, setOrderFilter] = useState(searchParams.orderId || '')
+  const [routeOrderId, setRouteOrderId] = useState(searchParams.orderId || '')
+  const [orderFilter, setOrderFilter] = useState(searchParams.orderNumber || '')
   const [statusFilter, setStatusFilter] = useState('all')
   const [form, setForm] = useState({
     orderId: searchParams.orderId || '',
@@ -45,14 +48,13 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
   const [showModal, setShowModal] = useState(false)
   const [selected, setSelected] = useState<InvoiceGroup | null>(null)
   const [amountError, setAmountError] = useState<string | null>(null)
-  const [adjustments, setAdjustments] = useState<OrderAdjustment[]>([])
-  const [adjustmentsLoading, setAdjustmentsLoading] = useState(false)
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<number | null>(null)
   const amountRef = useRef<HTMLInputElement>(null)
 
-  const load = async (orderId?: number) => {
+  const load = async (filters?: { orderId?: number; orderNumber?: string }) => {
     setErr(null)
     try {
-      const data = await apiAdminInvoices(orderId)
+      const data = await apiAdminInvoices(filters)
       setRows(data)
     } catch (e: any) {
       setErr(e?.message || 'Failed to load invoices')
@@ -61,9 +63,15 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
   }
 
   useEffect(() => {
-    const idNum = orderFilter ? Number(orderFilter) : undefined
-    load(Number.isFinite(idNum) ? idNum : undefined)
-  }, [orderFilter])
+    const orderNumber = orderFilter.trim()
+    if (orderNumber) {
+      load({ orderNumber })
+      return
+    }
+
+    const idNum = routeOrderId ? Number(routeOrderId) : undefined
+    load(Number.isFinite(idNum) ? { orderId: idNum } : undefined)
+  }, [orderFilter, routeOrderId])
 
   useEffect(() => {
     if (!showModal) return
@@ -110,6 +118,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
           orderSettledAmount: inv.orderSettledAmount ?? undefined,
           invoiceStatus: inv.orderInvoiceStatus ?? inv.status,
           paymentCount: 1,
+          latestInvoiceId: inv.id,
           latestInvoiceNumber: inv.invoiceNumber,
           latestCreatedAt: inv.createdAt,
           latestPaymentMethod: inv.paymentMethod,
@@ -133,6 +142,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
         orderSettledAmount: existing.orderSettledAmount ?? inv.orderSettledAmount ?? undefined,
         invoiceStatus: inv.orderInvoiceStatus ?? existing.invoiceStatus ?? inv.status,
         paymentCount: existing.paymentCount + 1,
+        latestInvoiceId: isLatest ? inv.id : existing.latestInvoiceId,
         latestInvoiceNumber: isLatest ? inv.invoiceNumber : existing.latestInvoiceNumber,
         latestCreatedAt: isLatest ? inv.createdAt : existing.latestCreatedAt,
         latestPaymentMethod: isLatest ? inv.paymentMethod : existing.latestPaymentMethod,
@@ -170,10 +180,11 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
   }
 
   const openModal = async (group: InvoiceGroup) => {
+    const balanceDue = getOutstandingBalance(group)
     setSelected(group)
     setForm({
       orderId: String(group.orderId),
-      amount: '',
+      amount: balanceDue > 0 ? String(balanceDue) : '',
       paymentMethod: '1',
       referenceNumber: '',
       notes: ''
@@ -181,23 +192,33 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
     setAmountError(null)
     setErr(null)
     setSuccess(null)
-    setAdjustments([])
-    setAdjustmentsLoading(true)
     setShowModal(true)
-    try {
-      const data = await apiAdminOrderAdjustments(group.orderId)
-      setAdjustments(data)
-    } catch (e: any) {
-      setErr(e?.message || 'Failed to load adjustment history')
-    } finally {
-      setAdjustmentsLoading(false)
-    }
   }
 
   const closeModal = () => {
     if (saving) return
     setShowModal(false)
-    setAdjustments([])
+  }
+
+  const downloadPdf = async (group: InvoiceGroup) => {
+    if (!group.latestInvoiceId) return
+    setErr(null)
+    setDownloadingInvoiceId(group.latestInvoiceId)
+    try {
+      const blob = await apiAdminDownloadInvoicePdf(group.latestInvoiceId)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `FreshMooz-Invoice-${group.latestInvoiceNumber || group.latestInvoiceId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (e: any) {
+      setErr(e?.message || 'Failed to download invoice PDF')
+    } finally {
+      setDownloadingInvoiceId(null)
+    }
   }
 
   const submit = async (e: React.FormEvent) => {
@@ -222,8 +243,8 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
         notes: form.notes || undefined
       }
       await apiAdminCreateInvoice(payload)
-      await load(orderFilter ? Number(orderFilter) : undefined)
-      setSuccess(`Payment recorded for order ${payload.orderId}.`)
+      await load(orderFilter.trim() ? { orderNumber: orderFilter.trim() } : routeOrderId ? { orderId: Number(routeOrderId) } : undefined)
+      setSuccess(`Payment recorded for order ${selected?.orderNumber || 'selected order'}.`)
       setShowModal(false)
     } catch (e: any) {
       setErr(e?.message || 'Failed to create invoice')
@@ -235,13 +256,16 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
   return (
     <Shell title="Payments">
       <p className="text-slate-600 mb-6">Record payments against orders and track balances.</p>
+      {success && <AdminAlert>{success}</AdminAlert>}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
-          type="number"
-          className="w-full rounded-md border px-3 py-2 sm:w-40"
-          placeholder="e.g., 6"
+          className="w-full rounded-md border px-3 py-2 sm:w-52"
+          placeholder="Search order number"
           value={orderFilter}
-          onChange={(e) => setOrderFilter(e.target.value)}
+          onChange={(e) => {
+            setRouteOrderId('')
+            setOrderFilter(e.target.value)
+          }}
         />
         <select
           className="w-full rounded-md border px-3 py-2 sm:w-52"
@@ -256,6 +280,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
         <button
           className="px-3 py-2 border rounded-md text-sm"
           onClick={() => {
+            setRouteOrderId('')
             setOrderFilter('')
             setStatusFilter('all')
           }}
@@ -272,7 +297,6 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
         <span>Unpaid: <span className="font-semibold text-slate-900">{statusCounts.unpaid}</span></span>
         <span>Partially Paid: <span className="font-semibold text-slate-900">{statusCounts.partiallyPaid}</span></span>
       </div>
-      {success && <div className="mb-3 max-w-md rounded-md border border-green-200 bg-green-50 px-3 py-2 text-green-700">{success}</div>}
       {err && <div className="text-red-600 mb-3">{err}</div>}
       {rows === null ? (
         <LoadingState />
@@ -299,8 +323,9 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
                 const settledDisplay = group.orderSettledAmount ?? (cashPaidDisplay + creditAppliedDisplay)
                 const totalDisplay = group.orderAdjustedTotalAmount ?? group.totalAmount
                 const balance = totalDisplay != null ? totalDisplay - settledDisplay : null
+                const hasOutstandingBalance = balance != null && balance > 0
                 return (
-                  <tr key={group.orderId} className="border-t">
+                  <tr key={group.orderId} className={`border-t transition-colors ${getInvoiceRowClass(statusValue, balance)}`}>
                     <td className="px-3 py-2">
                       <div className="font-semibold">{group.latestInvoiceNumber || '-'}</div>
                       <div className="text-xs text-slate-500">
@@ -309,7 +334,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
                       <div className="text-xs text-slate-500">{group.paymentCount} payment{group.paymentCount === 1 ? '' : 's'}</div>
                     </td>
                     <td className="px-3 py-2">
-                      <div>Order {group.orderNumber || group.orderId}</div>
+                      <div>Order {group.orderNumber || '-'}</div>
                       <div className="text-xs text-slate-500">{group.clientName || '-'}</div>
                     </td>
                     <td className="px-3 py-2 text-right font-semibold">
@@ -321,9 +346,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
                           <div className="text-xs text-slate-500">of {formatInr(totalDisplay)}</div>
                         </>
                       )}
-                      {balance != null && (
-                        <div className="text-xs text-slate-500">Balance {formatInr(balance)}</div>
-                      )}
+                      {balance != null && <div className={getBalanceClass(balance)}>Balance {formatInr(balance)}</div>}
                       {(group.orderAdjustmentCount ?? 0) > 0 && (
                         <div className="text-xs text-slate-500">{group.orderAdjustmentCount} adjustment{group.orderAdjustmentCount === 1 ? '' : 's'}</div>
                       )}
@@ -338,12 +361,25 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      <button
-                        className="text-sm text-[#2B7CBF] hover:underline"
-                        onClick={() => openModal(group)}
-                      >
-                        Record payment
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {hasOutstandingBalance && (
+                          <button
+                            className="inline-flex h-8 items-center justify-center rounded-md bg-[#6FAF3D] px-3 text-xs font-medium text-white transition-colors hover:bg-[#5F9B34]"
+                            onClick={() => openModal(group)}
+                          >
+                            Record Payment
+                          </button>
+                        )}
+                        {group.latestInvoiceId && (
+                          <button
+                            className="inline-flex h-8 items-center justify-center rounded-md bg-[#2B7CBF] px-3 text-xs font-medium text-white transition-colors hover:bg-[#236aa3] disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={downloadingInvoiceId === group.latestInvoiceId}
+                            onClick={() => downloadPdf(group)}
+                          >
+                            {downloadingInvoiceId === group.latestInvoiceId ? 'Downloading...' : 'Download PDF'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -365,7 +401,7 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h2 className="text-lg font-semibold">Record payment</h2>
-                <p className="text-sm text-slate-500">Order {selected.orderNumber || selected.orderId}</p>
+                <p className="text-sm text-slate-500">Order {selected.orderNumber || '-'} · {selected.clientName || '-'}</p>
               </div>
               <button aria-label="Close" className="inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700" onClick={closeModal}>
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -374,81 +410,12 @@ export default function AdminInvoicesPage({ searchParams }: { searchParams: { or
                 </svg>
               </button>
             </div>
-            <div className="bg-slate-50 rounded-lg p-3 text-sm mb-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-slate-500">Client</span>
-                <span className="font-medium">{selected.clientName || '-'}</span>
-              </div>
-              {selected.totalAmount != null && (
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="text-slate-500">Original total</span>
-                  <span className="font-medium">{formatInr(selected.totalAmount)}</span>
-                </div>
-              )}
-              {(selected.orderAdjustmentTotal ?? 0) > 0 && (
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="text-slate-500">Adjustments</span>
-                  <span className="font-medium">{formatInr(selected.orderAdjustmentTotal ?? 0)}</span>
-                </div>
-              )}
-              {selected.orderAdjustedTotalAmount != null && (
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="text-slate-500">Adjusted total</span>
-                  <span className="font-medium">{formatInr(selected.orderAdjustedTotalAmount)}</span>
-                </div>
-              )}
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-slate-500">Cash paid</span>
-                <span className="font-medium">{formatInr(selected.orderAmountPaid ?? selected.paidSoFar)}</span>
-              </div>
-              {(selected.orderAppliedCreditAmount ?? 0) > 0 && (
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="text-slate-500">Credit applied</span>
-                  <span className="font-medium">{formatInr(selected.orderAppliedCreditAmount ?? 0)}</span>
-                </div>
-              )}
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-slate-500">Settled so far</span>
-                <span className="font-medium">{formatInr((selected.orderSettledAmount ?? ((selected.orderAmountPaid ?? selected.paidSoFar) + (selected.orderAppliedCreditAmount ?? 0))))}</span>
-              </div>
-              {(selected.orderAdjustedTotalAmount ?? selected.totalAmount) != null && (
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="text-slate-500">Balance</span>
-                  <span className="font-medium">{formatInr(Math.max(((selected.orderAdjustedTotalAmount ?? selected.totalAmount) || 0) - (selected.orderSettledAmount ?? ((selected.orderAmountPaid ?? selected.paidSoFar) + (selected.orderAppliedCreditAmount ?? 0))), 0))}</span>
-                </div>
-              )}
-            </div>
-            <div className="mt-4 rounded-lg border border-slate-200 p-3 text-sm">
-              <div className="font-medium">Adjustment history</div>
-              {adjustmentsLoading ? (
-                <div className="mt-2"><LoadingState /></div>
-              ) : adjustments.length === 0 ? (
-                <div className="mt-2 text-slate-500">No adjustments recorded.</div>
-              ) : (
-                <div className="mt-2 space-y-2">
-                  {adjustments.map((adjustment) => (
-                    <div key={adjustment.id} className="rounded-md bg-slate-50 px-3 py-2">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="font-medium">{adjustment.type} {formatInr(adjustment.amount)}</span>
-                        <span className="text-xs text-slate-500">{adjustment.createdUtc ? new Date(adjustment.createdUtc).toLocaleString() : '-'}</span>
-                      </div>
-                      <div className="text-slate-600">{adjustment.reason}</div>
-                      {adjustment.note && <div className="text-slate-500">{adjustment.note}</div>}
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="mb-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-rose-700">Balance due</div>
+              <div className="mt-1 text-2xl font-bold text-rose-800">{formatInr(getOutstandingBalance(selected))}</div>
             </div>
 
             <form onSubmit={submit} noValidate className="space-y-3">
-              <div>
-                <label className="block text-sm mb-1">Order ID</label>
-                <input
-                  className="border rounded-md px-3 py-2 w-full bg-slate-50"
-                  value={form.orderId}
-                  readOnly
-                />
-              </div>
               <div>
                 <label className="block text-sm mb-1">Amount</label>
                 <input
@@ -549,6 +516,30 @@ function Badge({ children, tone = 'gray' }: { children: React.ReactNode; tone?: 
       ? 'bg-amber-100 text-amber-800'
       : 'bg-slate-100 text-slate-700'
   return <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${colors}`}>{children}</span>
+}
+
+function getOutstandingBalance(group: InvoiceGroup) {
+  const cashPaid = group.orderAmountPaid ?? group.paidSoFar
+  const creditApplied = group.orderAppliedCreditAmount ?? 0
+  const settled = group.orderSettledAmount ?? (cashPaid + creditApplied)
+  const total = group.orderAdjustedTotalAmount ?? group.totalAmount
+
+  return total != null ? Math.max(total - settled, 0) : 0
+}
+
+function getInvoiceRowClass(status?: number, balance?: number | null) {
+  if (balance != null && balance <= 0) return 'bg-green-50/60 hover:bg-green-50'
+  if (getStatusKey(status) === 'partiallyPaid') return 'bg-amber-50/60 hover:bg-amber-50'
+  if (getStatusKey(status) === 'unpaid' || (balance != null && balance > 0)) return 'bg-rose-50/60 hover:bg-rose-50'
+  return 'bg-white hover:bg-slate-50'
+}
+
+function getBalanceClass(balance: number) {
+  if (balance > 0) {
+    return 'mt-1 inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-100'
+  }
+
+  return 'text-xs text-slate-500'
 }
 
 function renderStatus(status?: number) {

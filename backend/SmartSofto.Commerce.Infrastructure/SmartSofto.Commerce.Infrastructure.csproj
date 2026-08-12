@@ -14,6 +14,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" />
+    <PackageReference Include="QuestPDF" Version="2026.7.2" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.0" />
   </ItemGroup>
 
@@ -21,6 +22,10 @@
     <ProjectReference Include="..\SmartSofto.Commerce.Domain\SmartSofto.Commerce.Domain.csproj" />
     <ProjectReference Include="..\SmartSofto.Commerce.Shared\SmartSofto.Commerce.Shared.csproj" />
     <ProjectReference Include="..\SmartSofto.Commerce.Application\SmartSofto.Commerce.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('Assets\standard-paneer-upi-qr.jpeg')">
+    <None Include="Assets\standard-paneer-upi-qr.jpeg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

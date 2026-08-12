@@ -28,6 +28,8 @@ type InventoryFormErrors = {
   note?: string
 }
 
+const LOW_STOCK_QUANTITY = 5
+
 export default function AdminInventoryPage() {
   const user = useClientUser()
   const token = getToken() || undefined
@@ -178,41 +180,38 @@ export default function AdminInventoryPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-slate-700">
               <tr>
-                <th className="text-left px-3 py-2">Product</th>
-                <th className="text-right px-3 py-2">Stock</th>
-                <th className="text-left px-3 py-2">Unit</th>
-                <th className="text-left px-3 py-2">Active</th>
-                <th className="text-left px-3 py-2">Actions</th>
+                <th className="text-left px-4 py-3 font-semibold">Product</th>
+                <th className="w-32 text-right px-4 py-3 font-semibold">Stock</th>
+                <th className="w-32 text-left px-4 py-3 font-semibold">Unit</th>
+                <th className="w-40 text-right px-4 py-3 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.productId} className="border-t">
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{item.name}</div>
-                    <div className="text-xs text-slate-500">ID {item.productId}</div>
+                <tr key={item.productId} className={`border-t transition-colors ${getRowTone(item.quantity)}`}>
+                  <td className="px-4 py-3 align-middle">
+                    <div className="font-semibold text-slate-900">{item.name}</div>
                   </td>
-                  <td className="px-3 py-2 text-right font-semibold">{formatQuantity(item.quantity)}</td>
-                  <td className="px-3 py-2">{units.get(item.unit) || 'Other'}</td>
-                  <td className="px-3 py-2">
-                    <Badge tone={item.isActive ? 'green' : 'gray'}>
-                      {item.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
+                  <td className="px-4 py-3 text-right align-middle">
+                    <span className={`font-semibold tabular-nums ${item.quantity === 0 ? 'text-rose-700' : 'text-slate-800'}`}>
+                      {formatQuantity(item.quantity)}
+                    </span>
                   </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <Link
-                        href={`/inventory/transactions?productId=${item.productId}`}
-                        className="text-[#2B7CBF] text-sm"
-                      >
-                        History
-                      </Link>
+                  <td className="px-4 py-3 align-middle">{units.get(item.unit) || 'Other'}</td>
+                  <td className="px-4 py-3 align-middle">
+                    <div className="flex items-center justify-end gap-2">
                       <button
-                        className="px-2 py-1 border rounded text-slate-700 hover:text-[#4DB6E2] hover:border-[#4DB6E2] transition-colors"
+                        className="inline-flex h-8 items-center justify-center rounded-md bg-[#6FAF3D] px-3 text-xs font-medium text-white transition-colors hover:bg-[#5F9B34] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#4DB6E2]"
                         onClick={() => openAdjust(item)}
                       >
                         Adjust
                       </button>
+                      <Link
+                        href={`/inventory/transactions?productId=${item.productId}`}
+                        className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white/80 px-3 text-xs font-medium text-[#2B7CBF] transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#4DB6E2]"
+                      >
+                        History
+                      </Link>
                     </div>
                   </td>
                 </tr>
@@ -250,13 +249,21 @@ export default function AdminInventoryPage() {
             <div className="px-4 py-3 border-b flex items-center justify-between">
               <div>
                 <div className="font-semibold">Adjust stock</div>
-                <div className="text-xs text-slate-500">{selected.name}{selected.isLooseQuantity ? ' - loose quantity enabled' : ''}</div>
               </div>
               <button aria-label="Close" className="text-slate-500 hover:text-slate-800 text-2xl leading-none" onClick={() => setAdjustOpen(false)}>
                 &times;
               </button>
             </div>
             <form className="p-4 space-y-3" onSubmit={submitAdjust} noValidate>
+              <div className="rounded-md bg-[#F1F7EC] px-3 py-2">
+                <div className="text-lg font-bold text-[#2F6B3F]">{selected.name}</div>
+                <div className="mt-0.5 text-sm text-slate-500">
+                  Current stock: <span className="font-medium text-slate-600">{formatQuantity(selected.quantity)} {units.get(selected.unit) || 'Other'}</span>
+                </div>
+                {selected.isLooseQuantity && (
+                  <div className="mt-1 text-xs text-slate-500">Loose quantity enabled</div>
+                )}
+              </div>
               <div>
                 <label className="block text-sm mb-1">Qty delta</label>
                 <input
@@ -381,6 +388,16 @@ function daysBetween(from: string, to: string) {
   return Math.floor((toDate.getTime() - fromDate.getTime()) / 86400000)
 }
 
+function getRowTone(quantity: number) {
+  if (quantity === 0) {
+    return 'border-l-4 border-l-rose-300 bg-rose-50/80 hover:bg-rose-50'
+  }
+  if (quantity > 0 && quantity <= LOW_STOCK_QUANTITY) {
+    return 'border-l-4 border-l-amber-300 bg-amber-50/80 hover:bg-amber-50'
+  }
+  return 'hover:bg-slate-50/70'
+}
+
 function Shell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="landing">
@@ -394,21 +411,6 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
     </div>
   )
 }
-
-function Badge({ children, tone = 'gray' }: { children: React.ReactNode; tone?: 'gray' | 'green' | 'amber' }) {
-  const colors =
-    tone === 'green'
-      ? 'bg-green-100 text-green-800'
-      : tone === 'amber'
-      ? 'bg-amber-100 text-amber-800'
-      : 'bg-slate-100 text-slate-700'
-  return <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${colors}`}>{children}</span>
-}
-
-
-
-
-
 
 function formatQuantity(value: number) {
   return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 3 }).format(value)

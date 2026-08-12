@@ -18,6 +18,9 @@ namespace SmartSofto.Commerce.Domain.Models
         [StringLength(100)]
         public string? CompanyName { get; set; }
 
+        [StringLength(20)]
+        public string? Gstin { get; set; }
+
         [StringLength(100)]
         [EmailAddress]
         public string? Email { get; set; }

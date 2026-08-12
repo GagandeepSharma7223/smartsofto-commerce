@@ -3,7 +3,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true
   },
-  reactStrictMode: true,
-  srcDir: 'src'
+  reactStrictMode: true
 };
 export default nextConfig;

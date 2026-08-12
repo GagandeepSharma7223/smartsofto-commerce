@@ -50,7 +50,7 @@ namespace SmartSofto.Commerce.Api.Controllers
 
             try
             {
-                var created = await _invoiceService.CreateInvoiceAsync(tenantId.Value, invoice);
+                var created = await _invoiceService.CreateInvoiceAsync(tenantId.Value, invoice, _currentUser.UserId);
                 return CreatedAtAction(nameof(GetInvoice), new { id = created.Id }, created);
             }
             catch (InvalidOperationException ex)

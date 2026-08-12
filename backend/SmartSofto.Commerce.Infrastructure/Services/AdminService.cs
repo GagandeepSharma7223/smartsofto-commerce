@@ -127,7 +127,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             return await _orderService.UpdateOrderStatusAsync(tenantId, id, newStatus, userId);
         }
 
-        public async Task<IReadOnlyList<AdminInvoiceSummaryDto>> GetInvoicesAsync(int tenantId, int? orderId)
+        public async Task<IReadOnlyList<AdminInvoiceSummaryDto>> GetInvoicesAsync(int tenantId, int? orderId, string? orderNumber = null)
         {
             var query = _context.Invoices
                 .Where(i => i.TenantId == tenantId)
@@ -138,6 +138,11 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             if (orderId.HasValue)
             {
                 query = query.Where(i => i.OrderId == orderId.Value);
+            }
+            else if (!string.IsNullOrWhiteSpace(orderNumber))
+            {
+                var normalizedOrderNumber = orderNumber.Trim();
+                query = query.Where(i => i.Order != null && i.Order.OrderNumber == normalizedOrderNumber);
             }
 
             var invoices = await query
@@ -181,9 +186,11 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             return invoices;
         }
 
-        public async Task<AdminInvoiceCreateResultDto> CreateInvoiceAsync(int tenantId, AdminCreateInvoiceRequest request)
+        public async Task<AdminInvoiceCreateResultDto> CreateInvoiceAsync(int tenantId, AdminCreateInvoiceRequest request, string? userId)
         {
-            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == request.OrderId && o.TenantId == tenantId);
+            var order = await _context.Orders
+                .Include(o => o.Client)
+                .FirstOrDefaultAsync(o => o.Id == request.OrderId && o.TenantId == tenantId);
             if (order == null)
             {
                 throw new InvalidOperationException("Order not found");
@@ -212,6 +219,9 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 CreatedAt = DateTime.UtcNow,
                 CreatedUtc = DateTime.UtcNow,
                 TenantId = tenantId,
+                SellerProfileId = await GetDefaultSellerProfileIdAsync(tenantId, userId),
+                BuyerBusinessName = SnapshotBuyerBusinessName(order.Client),
+                BuyerGstin = SnapshotBuyerGstin(order.Client),
                 InvoiceNumber = await GenerateInvoiceNumberAsync()
             };
 
@@ -247,6 +257,16 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 CreatedAt = invoice.CreatedAt,
                 InvoiceDate = invoice.InvoiceDate
             };
+        }
+
+        private static string? SnapshotBuyerBusinessName(Client? client)
+        {
+            return string.IsNullOrWhiteSpace(client?.CompanyName) ? null : client.CompanyName.Trim();
+        }
+
+        private static string? SnapshotBuyerGstin(Client? client)
+        {
+            return string.IsNullOrWhiteSpace(client?.Gstin) ? null : client.Gstin.Trim();
         }
 
         public async Task<IReadOnlyList<OrderAdjustmentDto>> GetOrderAdjustmentsAsync(int tenantId, int orderId)
@@ -518,6 +538,28 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             }
 
             return $"INV{nextNumber:D4}";
+        }
+
+        private async Task<int?> GetDefaultSellerProfileIdAsync(int tenantId, string? userId)
+        {
+            var query = _context.SellerProfiles.Where(profile => profile.TenantId == tenantId);
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                var userProfileId = await query
+                    .Where(profile => profile.AdminUserId == userId)
+                    .Select(profile => (int?)profile.Id)
+                    .FirstOrDefaultAsync();
+
+                if (userProfileId.HasValue)
+                {
+                    return userProfileId;
+                }
+            }
+
+            return await query
+                .OrderBy(profile => profile.Id)
+                .Select(profile => (int?)profile.Id)
+                .FirstOrDefaultAsync();
         }
     }
 }

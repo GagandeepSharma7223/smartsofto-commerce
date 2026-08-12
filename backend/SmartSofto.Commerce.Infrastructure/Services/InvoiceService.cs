@@ -83,7 +83,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             return invoice;
         }
 
-        public async Task<Invoice> CreateInvoiceAsync(int tenantId, Invoice invoice)
+        public async Task<Invoice> CreateInvoiceAsync(int tenantId, Invoice invoice, string? userId)
         {
             var order = await _context.Orders
                 .Where(o => o.TenantId == tenantId)
@@ -105,9 +105,11 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 throw new InvalidOperationException("Payment amount must be greater than 0");
             }
 
-            var adjustmentTotal = await _context.OrderAdjustments
+            var adjustmentAmounts = await _context.OrderAdjustments
                 .Where(a => a.TenantId == tenantId && a.OrderId == order.Id)
-                .SumAsync(a => (decimal?)a.Amount) ?? 0m;
+                .Select(a => a.Amount)
+                .ToListAsync();
+            var adjustmentTotal = adjustmentAmounts.Sum();
             var effectiveTotal = Math.Max(order.TotalAmount - adjustmentTotal, 0m);
             var remainingAmount = effectiveTotal - (order.AmountPaid + order.AppliedCreditAmount);
             if (invoice.Amount > remainingAmount)
@@ -121,6 +123,9 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             invoice.CreatedUtc = DateTime.UtcNow;
             invoice.Status = InvoiceStatus.Unpaid;
             invoice.TenantId = tenantId;
+            invoice.SellerProfileId = await GetDefaultSellerProfileIdAsync(tenantId, userId);
+            invoice.BuyerBusinessName = SnapshotBuyerBusinessName(order.Client);
+            invoice.BuyerGstin = SnapshotBuyerGstin(order.Client);
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -145,6 +150,16 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             invoice.OrderNumber = order.OrderNumber;
             invoice.ClientName = order.Client?.Name;
             return invoice;
+        }
+
+        private static string? SnapshotBuyerBusinessName(Client? client)
+        {
+            return string.IsNullOrWhiteSpace(client?.CompanyName) ? null : client.CompanyName.Trim();
+        }
+
+        private static string? SnapshotBuyerGstin(Client? client)
+        {
+            return string.IsNullOrWhiteSpace(client?.Gstin) ? null : client.Gstin.Trim();
         }
 
         public async Task<IReadOnlyList<Invoice>> GetInvoicesForOrderAsync(int tenantId, int orderId, string? userId, bool isAdmin)
@@ -215,6 +230,28 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             }
 
             return $"INV{nextNumber:D4}";
+        }
+
+        private async Task<int?> GetDefaultSellerProfileIdAsync(int tenantId, string? userId)
+        {
+            var query = _context.SellerProfiles.Where(profile => profile.TenantId == tenantId);
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                var userProfileId = await query
+                    .Where(profile => profile.AdminUserId == userId)
+                    .Select(profile => (int?)profile.Id)
+                    .FirstOrDefaultAsync();
+
+                if (userProfileId.HasValue)
+                {
+                    return userProfileId;
+                }
+            }
+
+            return await query
+                .OrderBy(profile => profile.Id)
+                .Select(profile => (int?)profile.Id)
+                .FirstOrDefaultAsync();
         }
     }
 }

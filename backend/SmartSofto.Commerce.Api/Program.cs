@@ -9,6 +9,7 @@ using SmartSofto.Commerce.Infrastructure.Identity;
 using SmartSofto.Commerce.Infrastructure.Services;
 using SmartSofto.Commerce.Api.Services;
 using SmartSofto.Commerce.Api.Settings;
+using SmartSofto.Commerce.Domain.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -65,6 +66,7 @@ builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IOrderPricingService, OrderPricingService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+builder.Services.AddScoped<IInvoicePdfService, InvoicePdfService>();
 builder.Services.AddScoped<IClientAccountService, ClientAccountService>();
 builder.Services.AddScoped<IPlantService, PlantService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
@@ -150,6 +152,7 @@ static async Task SeedIdentityAsync(IServiceProvider services)
     using var scope = services.CreateScope();
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
     // Ensure roles exist (migrations seed, but keep idempotent)
     var roles = new[] { "Admin", "User" };
@@ -181,6 +184,25 @@ static async Task SeedIdentityAsync(IServiceProvider services)
         {
             await userManager.AddToRoleAsync(adminUser, "Admin");
         }
+    }
+
+    if (adminUser != null && !context.SellerProfiles.Any(profile => profile.TenantId == 1))
+    {
+        context.SellerProfiles.Add(new SellerProfile
+        {
+            TenantId = 1,
+            AdminUserId = adminUser.Id,
+            BusinessName = "Standard Paneer Gurugram",
+            Gstin = "06DBRPS5510N1ZZ",
+            Address = "HOUSE NO 3, MOHYAL COLONY, DPS Gurgaon Infant Wing, Sector 40, Gurugram, Haryana, 122001",
+            AccountName = "Standard Paneer Gurugram",
+            BankName = "IndusInd",
+            AccountNumber = "252010000009",
+            IfscCode = "INDB0000518",
+            AuthorizedSignatory = "Bhupinder Singh Bali",
+            CreatedAt = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
     }
 }
 

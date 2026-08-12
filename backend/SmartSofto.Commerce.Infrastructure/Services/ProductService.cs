@@ -127,6 +127,11 @@ namespace SmartSofto.Commerce.Infrastructure.Services
 
         private static void ValidateProductQuantity(Product product)
         {
+            if (product.GstRate < 0)
+            {
+                throw new InvalidOperationException("GST rate must be 0 or greater.");
+            }
+
             if (product.Quantity < 0)
             {
                 throw new InvalidOperationException("Quantity must be 0 or greater.");

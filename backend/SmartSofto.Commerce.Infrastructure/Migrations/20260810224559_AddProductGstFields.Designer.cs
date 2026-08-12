@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartSofto.Commerce.Infrastructure;
@@ -11,9 +12,11 @@ using SmartSofto.Commerce.Infrastructure;
 namespace SmartSofto.Commerce.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810224559_AddProductGstFields")]
+    partial class AddProductGstFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -199,10 +202,6 @@ namespace SmartSofto.Commerce.Infrastructure.Migrations
 
                     b.Property<DateTime>("FirstPurchaseDate")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Gstin")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -484,14 +483,6 @@ namespace SmartSofto.Commerce.Infrastructure.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("BuyerBusinessName")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("BuyerGstin")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -519,9 +510,6 @@ namespace SmartSofto.Commerce.Infrastructure.Migrations
                     b.Property<string>("ReferenceNumber")
                         .HasColumnType("text");
 
-                    b.Property<int?>("SellerProfileId")
-                        .HasColumnType("integer");
-
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -534,10 +522,6 @@ namespace SmartSofto.Commerce.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OrderId");
-
-                    b.HasIndex("SellerProfileId");
-
-                    b.HasIndex("TenantId", "SellerProfileId");
 
                     b.ToTable("Invoices");
                 });
@@ -1005,82 +989,6 @@ namespace SmartSofto.Commerce.Infrastructure.Migrations
                     b.ToTable("SaleItems");
                 });
 
-            modelBuilder.Entity("SmartSofto.Commerce.Domain.Models.SellerProfile", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AccountName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("AccountNumber")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<string>("Address")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("AdminUserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
-                    b.Property<string>("AuthorizedSignatory")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("BankName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("BusinessName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("Gstin")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("IfscCode")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<int>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(1);
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AdminUserId");
-
-                    b.HasIndex("TenantId", "AdminUserId")
-                        .IsUnique();
-
-                    b.ToTable("SellerProfiles");
-                });
-
             modelBuilder.Entity("SmartSofto.Commerce.Domain.Models.Tenant", b =>
                 {
                     b.Property<int>("Id")
@@ -1369,14 +1277,7 @@ namespace SmartSofto.Commerce.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("SmartSofto.Commerce.Domain.Models.SellerProfile", "SellerProfile")
-                        .WithMany()
-                        .HasForeignKey("SellerProfileId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.Navigation("Order");
-
-                    b.Navigation("SellerProfile");
                 });
 
             modelBuilder.Entity("SmartSofto.Commerce.Domain.Models.Order", b =>
@@ -1469,21 +1370,6 @@ namespace SmartSofto.Commerce.Infrastructure.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("Sale");
-                });
-
-            modelBuilder.Entity("SmartSofto.Commerce.Domain.Models.SellerProfile", b =>
-                {
-                    b.HasOne("SmartSofto.Commerce.Infrastructure.Identity.ApplicationUser", null)
-                        .WithMany()
-                        .HasForeignKey("AdminUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("SmartSofto.Commerce.Domain.Models.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("SmartSofto.Commerce.Domain.Models.Order", b =>

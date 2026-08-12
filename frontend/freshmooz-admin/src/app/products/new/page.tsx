@@ -1,5 +1,6 @@
 "use client"
 import LoadingState from '@/components/LoadingState'
+import AdminAlert from '@/components/AdminAlert'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiCreateProduct } from '@/lib/api'
@@ -20,6 +21,7 @@ const units = [
   { value: 4, label: 'Liter' },
   { value: 5, label: 'Other' },
 ]
+const gstRates = [0, 5, 12]
 
 type ProductErrors = {
   name?: string
@@ -27,6 +29,7 @@ type ProductErrors = {
   price?: string
   costPrice?: string
   quantity?: string
+  gstRate?: string
 }
 
 export default function AdminNewProductPage() {
@@ -44,6 +47,8 @@ export default function AdminNewProductPage() {
     type: 3,
     unit: 1,
     imageFileName: '',
+    gstRate: '0',
+    hsnCode: '',
     isActive: true,
     isLooseQuantity: false
   })
@@ -89,6 +94,7 @@ export default function AdminNewProductPage() {
     if (!hasNonNegativeNumber(form.costPrice)) nextErrors.costPrice = 'Enter a valid non-negative cost price.'
     if (!hasNonNegativeNumber(form.quantity)) nextErrors.quantity = 'Quantity must be 0 or greater.'
     else if (!form.isLooseQuantity && !Number.isInteger(Number(form.quantity))) nextErrors.quantity = 'Whole-number products must use whole quantities.'
+    if (!hasNonNegativeNumber(form.gstRate)) nextErrors.gstRate = 'GST rate must be 0 or greater.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) return
 
@@ -106,6 +112,8 @@ export default function AdminNewProductPage() {
         type: form.type,
         unit: form.unit,
         imageFileName: form.imageFileName.trim() || undefined,
+        gstRate: Number(form.gstRate || 0),
+        hsnCode: form.hsnCode.trim() || undefined,
         isActive: form.isActive,
         isLooseQuantity: form.isLooseQuantity,
       }
@@ -114,7 +122,7 @@ export default function AdminNewProductPage() {
       setOk(msg)
       try { sessionStorage.setItem('flash', msg) } catch {}
       router.push('/products')
-      setForm({ name:'', description:'', sku:'', price:'', costPrice:'', quantity:'0', type:3, unit:1, imageFileName:'', isActive:true, isLooseQuantity:false })
+      setForm({ name:'', description:'', sku:'', price:'', costPrice:'', quantity:'0', type:3, unit:1, imageFileName:'', gstRate:'0', hsnCode:'', isActive:true, isLooseQuantity:false })
     } catch (e: any) {
       setErr(e?.message || 'Failed to create product')
     } finally {
@@ -130,7 +138,7 @@ export default function AdminNewProductPage() {
           <Link href="/products" className="text-[#2B7CBF]">Back to Products</Link>
         </div>
         {err && <div className="mb-4 text-red-600">{err}</div>}
-        {ok && <div className="mb-4 text-green-700">{ok}</div>}
+        {ok && <AdminAlert>{ok}</AdminAlert>}
         <form onSubmit={onSubmit} noValidate className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div>
@@ -177,6 +185,20 @@ export default function AdminNewProductPage() {
               <select className={fieldClass(false)} value={form.unit} onChange={e=>setForm({...form, unit: parseInt(e.target.value, 10)})}>
                 {units.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
               </select>
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm mb-1">GST Rate</label>
+              <select className={fieldClass(!!errors.gstRate)} value={form.gstRate} onChange={e=>{const value=e.target.value; setForm({...form, gstRate:value}); setErrors(prev=>({...prev, gstRate: hasNonNegativeNumber(value) ? undefined : prev.gstRate}))}}>
+                {gstRates.map(rate => <option key={rate} value={rate}>{rate}%</option>)}
+              </select>
+              <p className="text-xs text-slate-600 mt-1">Product prices are GST-inclusive.</p>
+              <FieldError error={errors.gstRate} />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">HSN Code</label>
+              <input className={fieldClass(false)} placeholder="e.g., 0406" value={form.hsnCode} onChange={e=>setForm({...form, hsnCode:e.target.value})} />
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">

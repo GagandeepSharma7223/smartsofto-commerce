@@ -32,6 +32,7 @@ type ClientForm = {
   name: string
   referenceName: string
   companyName: string
+  gstin: string
   email: string
   phoneNumber: string
   clientType: string
@@ -77,6 +78,7 @@ const emptyForm: ClientForm = {
   name: '',
   referenceName: '',
   companyName: '',
+  gstin: '',
   email: '',
   phoneNumber: '',
   clientType: 'Regular',
@@ -202,6 +204,7 @@ export default function ClientsPage() {
       name: client.name || '',
       referenceName: client.referenceName || client.name || '',
       companyName: client.companyName || '',
+      gstin: client.gstin || '',
       email: client.email || '',
       phoneNumber: client.phoneNumber || '',
       clientType: client.clientType || 'Regular',
@@ -286,6 +289,7 @@ export default function ClientsPage() {
       name: form.name.trim(),
       referenceName: (form.referenceName || form.name).trim(),
       companyName: form.companyName.trim() || null,
+      gstin: form.gstin.trim() || null,
       email: form.email.trim() || null,
       phoneNumber: form.phoneNumber.trim() || null,
       clientType: form.clientType || 'Regular',
@@ -620,6 +624,17 @@ export default function ClientsPage() {
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm mb-1">GSTIN</label>
+                  <input
+                    className="border rounded-md px-3 py-2 w-full"
+                    value={form.gstin}
+                    onChange={(e) => setForm({ ...form, gstin: e.target.value })}
+                    placeholder="Optional for B2B clients"
+                  />
                 </div>
               </div>
               <div>

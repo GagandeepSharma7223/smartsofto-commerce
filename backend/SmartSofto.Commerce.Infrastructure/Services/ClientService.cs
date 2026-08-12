@@ -53,6 +53,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             existing.Name = client.Name;
             existing.ReferenceName = client.ReferenceName;
             existing.CompanyName = client.CompanyName;
+            existing.Gstin = client.Gstin;
             existing.Email = client.Email;
             existing.PhoneNumber = client.PhoneNumber;
             existing.NormalizedPhone = NormalizePhone(client.PhoneNumber);
