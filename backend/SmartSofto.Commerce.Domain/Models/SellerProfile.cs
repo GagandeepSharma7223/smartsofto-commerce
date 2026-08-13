@@ -21,6 +21,14 @@ namespace SmartSofto.Commerce.Domain.Models
         public string Address { get; set; } = string.Empty;
 
         [Required]
+        [MaxLength(100)]
+        public string State { get; set; } = string.Empty;
+
+        [Required]
+        [MaxLength(2)]
+        public string GstStateCode { get; set; } = string.Empty;
+
+        [Required]
         [MaxLength(200)]
         public string AccountName { get; set; } = string.Empty;
 

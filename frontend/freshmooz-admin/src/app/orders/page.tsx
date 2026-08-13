@@ -1,7 +1,8 @@
 "use client"
 import LoadingState from '@/components/LoadingState'
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
@@ -68,7 +69,61 @@ function AdminOrdersPageContent() {
   const [adjustmentSaving, setAdjustmentSaving] = useState(false)
   const [adjustmentForm, setAdjustmentForm] = useState<AdjustmentForm>(emptyAdjustmentForm)
   const [adjustmentErrors, setAdjustmentErrors] = useState<AdjustmentErrors>({})
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null)
+  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
+  const menuRef = useRef<HTMLDivElement | null>(null)
   const token = getToken()
+
+  const positionMenu = useCallback(() => {
+    if (!menuAnchor) return
+
+    const anchorRect = menuAnchor.getBoundingClientRect()
+    const menuWidth = menuRef.current?.offsetWidth || 144
+    const menuHeight = menuRef.current?.offsetHeight || 80
+    const gap = 6
+    const viewportPadding = 8
+    const roomBelow = window.innerHeight - anchorRect.bottom
+    const openUpward = roomBelow < menuHeight + gap && anchorRect.top >= menuHeight + gap
+
+    setMenuPosition({
+      top: openUpward ? anchorRect.top - menuHeight - gap : anchorRect.bottom + gap,
+      left: Math.max(viewportPadding, Math.min(anchorRect.right - menuWidth, window.innerWidth - menuWidth - viewportPadding))
+    })
+  }, [menuAnchor])
+
+  useLayoutEffect(() => {
+    if (openMenuId !== null) positionMenu()
+  }, [openMenuId, positionMenu])
+
+  useEffect(() => {
+    if (openMenuId === null) return
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Element | null
+      if (!target?.closest(`[data-order-menu="${openMenuId}"]`)) {
+        setOpenMenuId(null)
+        setMenuAnchor(null)
+      }
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenMenuId(null)
+        setMenuAnchor(null)
+      }
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    window.addEventListener('resize', positionMenu)
+    window.addEventListener('scroll', positionMenu, true)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+      window.removeEventListener('resize', positionMenu)
+      window.removeEventListener('scroll', positionMenu, true)
+    }
+  }, [openMenuId, positionMenu])
 
   const loadOrders = useCallback(async () => {
     setErr(null)
@@ -312,14 +367,38 @@ function AdminOrdersPageContent() {
                             View Invoice
                           </Link>
                         )}
-                        <details className="group relative">
-                          <summary className="inline-flex h-8 cursor-pointer list-none items-center justify-center rounded-md border border-slate-200 bg-white/80 px-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 [&::-webkit-details-marker]:hidden">
+                        <div data-order-menu={o.id}>
+                          <button
+                            type="button"
+                            aria-haspopup="menu"
+                            aria-expanded={openMenuId === o.id}
+                            aria-controls={`order-actions-${o.id}`}
+                            className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white/80 px-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100"
+                            onClick={(event) => {
+                              if (openMenuId === o.id) {
+                                setOpenMenuId(null)
+                                setMenuAnchor(null)
+                                return
+                              }
+                              setMenuAnchor(event.currentTarget)
+                              setOpenMenuId(o.id)
+                            }}
+                          >
                             More
-                          </summary>
-                          <div className="absolute right-0 z-20 mt-1 w-36 rounded-md border border-slate-200 bg-white p-1 text-xs shadow-lg">
+                          </button>
+                          {openMenuId === o.id && createPortal(
+                          <div
+                            ref={menuRef}
+                            id={`order-actions-${o.id}`}
+                            role="menu"
+                            data-order-menu={o.id}
+                            className="fixed z-50 w-36 rounded-md border border-slate-200 bg-white p-1 text-xs shadow-lg"
+                            style={{ top: menuPosition.top, left: menuPosition.left }}
+                          >
                             <button
                               type="button"
-                              onClick={() => openStatusModal(o)}
+                              role="menuitem"
+                              onClick={() => { setOpenMenuId(null); openStatusModal(o) }}
                               title="Update order status"
                               aria-label={`Update status for ${o.orderNumber || `order ${o.id}`}`}
                               className="block w-full rounded px-2 py-1.5 text-left font-medium text-slate-600 transition-colors hover:bg-slate-100"
@@ -328,15 +407,18 @@ function AdminOrdersPageContent() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => openAdjustmentModal(o)}
+                              role="menuitem"
+                              onClick={() => { setOpenMenuId(null); openAdjustmentModal(o) }}
                               title={o.status === 'Delivered' ? 'Add discount adjustment' : 'Adjustment history'}
                               aria-label={`Adjustment history for ${o.orderNumber || `order ${o.id}`}`}
                               className="block w-full rounded px-2 py-1.5 text-left font-medium text-amber-700 transition-colors hover:bg-amber-50"
                             >
                               Adjustments
                             </button>
-                          </div>
-                        </details>
+                          </div>,
+                          document.body
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>

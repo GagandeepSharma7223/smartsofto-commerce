@@ -116,7 +116,8 @@ export default function AdminEditProductPage({ params }: { params: { id: string 
         imageFileName: form.imageFileName || null,
         gstRate: Number(form.gstRate || 0),
         hsnCode: form.hsnCode?.trim() || null,
-        isActive: form.isActive
+        isActive: form.isActive,
+        isLooseQuantity: form.isLooseQuantity
       }
       await apiUpdateProduct(id, payload, token || undefined)
       const msg = 'Product updated successfully'
@@ -207,10 +208,16 @@ export default function AdminEditProductPage({ params }: { params: { id: string 
                 <input className={fieldClass(false)} placeholder="e.g., 0406" value={form.hsnCode} onChange={e=>setForm({...form, hsnCode:e.target.value})} />
               </div>
             </div>
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.isActive} onChange={e=>setForm({...form, isActive:e.target.checked})} />
-              Active
-            </label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={form.isLooseQuantity} onChange={e=>{const checked=e.target.checked; setForm({...form, isLooseQuantity:checked}); setErrors(prev=>({...prev, quantity: checked || Number.isInteger(Number(form.quantity)) ? undefined : prev.quantity}))}} />
+                Loose quantity product
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={form.isActive} onChange={e=>setForm({...form, isActive:e.target.checked})} />
+                Active
+              </label>
+            </div>
             <div>
               <label className="block text-sm mb-1">Image File Name</label>
               <input className={fieldClass(false)} value={form.imageFileName} onChange={e=>setForm({...form, imageFileName:e.target.value})} />

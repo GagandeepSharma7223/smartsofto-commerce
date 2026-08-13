@@ -2,7 +2,7 @@
 import LoadingState from '@/components/LoadingState'
 import AdminAlert from '@/components/AdminAlert'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -115,6 +115,8 @@ export default function AdminNewOrderPage() {
   const [paymentDate, setPaymentDate] = useState(() => todayInput())
   const [applyCreditAmount, setApplyCreditAmount] = useState('')
   const [availableCredit, setAvailableCredit] = useState(0)
+  const applyCreditEditedRef = useRef(false)
+  const creditClientIdRef = useRef<number | null>(null)
 
   const [addresses, setAddresses] = useState<ClientAddress[]>([])
   const [addressLoading, setAddressLoading] = useState(false)
@@ -152,19 +154,56 @@ export default function AdminNewOrderPage() {
     }
   }, [token])
 
+  const fallbackSubtotal = lines.reduce((sum, l) => sum + (l.unitPrice * l.quantity - l.discountAmount), 0)
+  const fallbackDiscount = lines.reduce((sum, l) => sum + l.discountAmount, 0)
+  const subtotal = pricing?.subtotal ?? fallbackSubtotal
+  const discountTotal = pricing?.discountTotal ?? fallbackDiscount
+  const total = pricing?.total ?? subtotal
+  const currentOrderTotalRef = useRef(total)
+  currentOrderTotalRef.current = total
+
   useEffect(() => {
+    let cancelled = false
+    applyCreditEditedRef.current = false
+    creditClientIdRef.current = null
+
     if (clientId) {
+      const selectedClientId = Number(clientId)
+      setAvailableCredit(0)
+      setApplyCreditAmount('0')
       loadAddresses(Number(clientId))
-      apiAdminClientCreditBalance(Number(clientId), token)
-        .then((balance) => setAvailableCredit(Number(balance.availableCredit || 0)))
-        .catch(() => setAvailableCredit(0))
+      apiAdminClientCreditBalance(selectedClientId, token)
+        .then((balance) => {
+          if (cancelled) return
+          const credit = Math.max(Number(balance.availableCredit || 0), 0)
+          creditClientIdRef.current = selectedClientId
+          setAvailableCredit(credit)
+          if (!applyCreditEditedRef.current) {
+            setApplyCreditAmount(String(Math.min(credit, Math.max(currentOrderTotalRef.current, 0))))
+          }
+        })
+        .catch(() => {
+          if (cancelled) return
+          creditClientIdRef.current = selectedClientId
+          setAvailableCredit(0)
+          if (!applyCreditEditedRef.current) setApplyCreditAmount('0')
+        })
     } else {
       setAddresses([])
       setSelectedAddressId('')
       setAvailableCredit(0)
       setApplyCreditAmount('')
     }
+
+    return () => {
+      cancelled = true
+    }
   }, [clientId, loadAddresses, token])
+
+  useEffect(() => {
+    if (!clientId || creditClientIdRef.current !== Number(clientId) || applyCreditEditedRef.current) return
+    setApplyCreditAmount(String(Math.min(Math.max(availableCredit, 0), Math.max(total, 0))))
+  }, [availableCredit, clientId, total])
 
   const recalcPricing = useCallback(async () => {
     if (!lines.length) {
@@ -484,11 +523,7 @@ export default function AdminNewOrderPage() {
     }
   }
 
-  const fallbackSubtotal = lines.reduce((sum, l) => sum + (l.unitPrice * l.quantity - l.discountAmount), 0)
-  const fallbackDiscount = lines.reduce((sum, l) => sum + l.discountAmount, 0)
-  const subtotal = pricing?.subtotal ?? fallbackSubtotal
-  const discountTotal = pricing?.discountTotal ?? fallbackDiscount
-  const total = pricing?.total ?? subtotal
+  const balanceAfterCreate = Math.max(total - ((hasInitialPayment ? paymentAmountValue : 0) + (applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)), 0)
 
   const lineTotals = new Map<number, number>()
   if (pricing?.items) {
@@ -549,10 +584,15 @@ export default function AdminNewOrderPage() {
             </div>
             <FieldError error={formErrors.clientId} />
             {selectedClient && (
-              <div className="text-sm text-slate-600 space-y-1">
-                <div>Email: {selectedClient.email || '-'}</div>
-                <div>Phone: {selectedClient.phoneNumber || '-'}</div>
-                <div>Available credit: <span className="font-medium text-slate-900">{formatInr(availableCredit)}</span></div>
+              <div className="text-sm text-slate-600">
+                <div className="space-y-1">
+                  <div>Email: {selectedClient.email || '-'}</div>
+                  <div>Phone: {selectedClient.phoneNumber || '-'}</div>
+                </div>
+                <div className="mt-2 inline-flex items-center gap-2 rounded-md bg-[#f4f9ef] px-3 py-1.5 text-xs font-medium text-slate-700">
+                  <span>Available credit</span>
+                  <span className="text-sm font-bold text-green-700">{formatInr(availableCredit)}</span>
+                </div>
               </div>
             )}
           </div>
@@ -657,72 +697,74 @@ export default function AdminNewOrderPage() {
             {lines.length === 0 ? (
               <div className="text-sm text-slate-600">No items added yet.</div>
             ) : (
-              <div className="overflow-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="text-slate-600">
-                    <tr>
-                      <th className="text-left py-2">Product</th>
-                      <th className="text-right py-2">Unit Price</th>
-                      <th className="text-right py-2">Discount</th>
-                      <th className="text-right py-2">Qty</th>
-                      <th className="text-right py-2">Line Total</th>
-                      <th className="text-right py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lines.map(l => {
-                      const lineTotal = lineTotals.get(l.productId) ?? (l.unitPrice * l.quantity - l.discountAmount)
-                      return (
-                        <tr key={l.productId} className="border-t">
-                          <td className="py-2">
-                            <div>{l.name}</div>
+              <div className="space-y-2">
+                <div className="overflow-auto rounded-lg border border-slate-200">
+                  <table className="min-w-full border-separate border-spacing-0 text-sm">
+                    <thead className="text-slate-600">
+                      <tr>
+                        <th className="bg-amber-50/60 px-3 py-2 text-left font-medium">Product</th>
+                        <th className="bg-amber-50/60 px-3 py-2 text-right font-medium">Unit Price</th>
+                        <th className="bg-amber-50/60 px-3 py-2 text-right font-medium">Discount</th>
+                        <th className="bg-amber-50/60 px-3 py-2 text-right font-medium">Qty</th>
+                        <th className="bg-amber-50/60 px-3 py-2 text-right font-medium">Line Total</th>
+                        <th className="bg-amber-50/60 px-3 py-2 text-right font-medium"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lines.map(l => {
+                        const lineTotal = lineTotals.get(l.productId) ?? (l.unitPrice * l.quantity - l.discountAmount)
+                        return (
+                          <tr key={l.productId} className="bg-white [&>td]:border-b [&>td]:border-slate-100 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-[#6FAF3D]">
+                          <td className="px-3 py-2.5">
+                            <div className="font-semibold text-slate-900">{l.name}</div>
                             {l.isLooseQuantity && <div className="text-xs text-slate-500">Loose quantity</div>}
                           </td>
-                          <td className="py-2 text-right">
+                          <td className="px-3 py-2.5 text-right">
                             <input
                               type="number"
                               step="0.01"
                               min="0"
-                              className="w-24 text-right border rounded-md px-2 py-1"
+                              className="w-24 rounded-md border border-slate-300 bg-white px-2 py-1 text-right"
                               value={l.unitPrice}
                               onChange={(e) => updateLine(l.productId, { unitPrice: Number(e.target.value || 0) })}
                             />
                           </td>
-                          <td className="py-2 text-right">
+                          <td className="px-3 py-2.5 text-right">
                             <input
                               type="number"
                               step="0.01"
                               min="0"
-                              className="w-24 text-right border rounded-md px-2 py-1"
+                              className="w-24 rounded-md border border-slate-300 bg-white px-2 py-1 text-right"
                               value={l.discountAmount}
                               onChange={(e) => updateLine(l.productId, { discountAmount: Number(e.target.value || 0) })}
                             />
                           </td>
-                          <td className="py-2 text-right">
-                            <div className="inline-flex items-center border rounded-md overflow-hidden">
-                              <button type="button" className="px-2 py-1" onClick={() => updateQty(l.productId, l.quantity - quantityStep(l))}>-</button>
+                          <td className="px-3 py-2.5 text-right">
+                            <div className="inline-flex items-center overflow-hidden rounded-md border border-slate-300 bg-white">
+                              <button type="button" className="px-2 py-1 font-medium text-slate-600 hover:bg-slate-50" onClick={() => updateQty(l.productId, l.quantity - quantityStep(l))}>-</button>
                               <input
                                 type="number"
                                 step={l.isLooseQuantity ? '0.001' : '1'}
                                 min={l.isLooseQuantity ? '0.001' : '1'}
-                                className="w-20 text-center border-l border-r"
+                                className="w-20 border-l border-r border-slate-300 bg-white text-center font-semibold"
                                 value={l.quantityInput ?? String(l.quantity)}
                                 onChange={(e) => updateQuantityInput(l, e.target.value)}
                                 onBlur={() => normalizeQuantityInput(l)}
                               />
-                              <button type="button" className="px-2 py-1" onClick={() => updateQty(l.productId, l.quantity + quantityStep(l))}>+</button>
+                              <button type="button" className="px-2 py-1 font-medium text-slate-600 hover:bg-slate-50" onClick={() => updateQty(l.productId, l.quantity + quantityStep(l))}>+</button>
                             </div>
                           </td>
-                          <td className="py-2 text-right">{formatInr(lineTotal)}</td>
-                          <td className="py-2 text-right">
-                            <button type="button" className="text-red-600 text-sm" onClick={() => removeLine(l.productId)}>Remove</button>
+                          <td className="px-3 py-2.5 text-right font-bold text-slate-900">{formatInr(lineTotal)}</td>
+                          <td className="px-3 py-2.5 text-right">
+                            <button type="button" className="text-xs font-medium text-red-500 hover:text-red-700 hover:underline" onClick={() => removeLine(l.productId)}>Remove</button>
                           </td>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                <div className="mt-2 text-xs text-slate-500">Loose-quantity products support up to 3 decimal places.</div>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="text-xs text-slate-500">Loose-quantity products support up to 3 decimal places.</div>
               </div>
             )}
           </div>
@@ -847,8 +889,11 @@ export default function AdminNewOrderPage() {
                 />
                 <FieldError error={formErrors.paymentDate} />
               </div>
-              <div>
-                <label className="block text-sm mb-1">Apply Credit</label>
+              <div className="rounded-lg border border-[#dfead5] bg-[#f4f9ef] p-3">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <label className="block text-sm font-medium">Apply Credit</label>
+                  <span className="text-xs font-semibold text-green-700">{formatInr(availableCredit)} available</span>
+                </div>
                 <input
                   type="number"
                   step="0.01"
@@ -859,6 +904,7 @@ export default function AdminNewOrderPage() {
                   value={applyCreditAmount}
                   onChange={(e) => {
                     const value = e.target.value
+                    applyCreditEditedRef.current = true
                     setApplyCreditAmount(value)
                     const numeric = Number(value || 0)
                     setFormErrors((prev) => ({
@@ -868,22 +914,23 @@ export default function AdminNewOrderPage() {
                   }}
                 />
                 <FieldError error={formErrors.applyCreditAmount} />
-                <div className="mt-1 text-xs text-slate-500">Available: {formatInr(availableCredit)}</div>
               </div>
             </div>
           </div>
 
-        <div className="border rounded-xl bg-white p-4 space-y-2">
-          <div className="font-semibold">Order Summary</div>
-          <div className="flex items-center justify-between text-sm"><span>Subtotal</span><span>{formatInr(subtotal)}</span></div>
-          <div className="flex items-center justify-between text-sm"><span>Discounts</span><span>{formatInr(discountTotal)}</span></div>
-          <div className="flex items-center justify-between text-sm"><span>Applied credit</span><span>{formatInr(applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)}</span></div>
-          <div className="flex items-center justify-between text-sm"><span>Payment</span><span>{formatInr(hasInitialPayment ? paymentAmountValue : 0)}</span></div>
-          <div className="flex items-center justify-between font-semibold"><span>Total</span><span>{formatInr(total)}</span></div>
-          <div className="flex items-center justify-between text-sm"><span>Balance after create</span><span>{formatInr(Math.max(total - ((hasInitialPayment ? paymentAmountValue : 0) + (applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)), 0))}</span></div>
+        <div className="space-y-2 rounded-xl border bg-white p-4">
+          <div className="font-semibold text-slate-900">Order Summary</div>
+          <div className="flex items-center justify-between text-sm text-slate-600"><span>Subtotal</span><span className="text-slate-900">{formatInr(subtotal)}</span></div>
+          <div className="flex items-center justify-between text-sm text-slate-600"><span>Discounts</span><span className="text-slate-900">{formatInr(discountTotal)}</span></div>
+          <div className="flex items-center justify-between text-sm text-slate-600"><span>Applied credit</span><span className="text-slate-900">{formatInr(applyCreditAmountValue > 0 ? applyCreditAmountValue : 0)}</span></div>
+          <div className="flex items-center justify-between text-sm text-slate-600"><span>Payment</span><span className="text-slate-900">{formatInr(hasInitialPayment ? paymentAmountValue : 0)}</span></div>
+          <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-lg font-bold text-slate-950"><span>Total</span><span className="text-xl">{formatInr(total)}</span></div>
+          <div className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-semibold ${balanceAfterCreate > 0 ? 'bg-amber-50 text-amber-800' : 'bg-slate-50 text-slate-600'}`}>
+            <span>Balance after create</span><span>{formatInr(balanceAfterCreate)}</span>
+          </div>
           <button
             type="button"
-            className="mt-2 w-full border rounded-md px-3 py-2 text-sm hover:text-[#4DB6E2] hover:border-[#4DB6E2]"
+            className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:border-slate-300 hover:bg-slate-50"
             onClick={() => recalcPricing()}
             disabled={pricingLoading}
           >
@@ -893,7 +940,7 @@ export default function AdminNewOrderPage() {
         <button
           type="submit"
           disabled={saving}
-          className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white px-4 py-2 rounded-md w-full disabled:opacity-60"
+          className="w-full rounded-md bg-[#6FAF3D] px-4 py-2.5 font-semibold text-white hover:bg-[#5F9B34] disabled:opacity-60"
         >
           {saving ? 'Placing...' : 'Place Order'}
         </button>

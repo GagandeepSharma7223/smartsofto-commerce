@@ -196,6 +196,44 @@ namespace SmartSofto.Commerce.Infrastructure.Tests
         }
 
         [Fact]
+        public void Settlement_UsesFullSaleTotal_AndPersistedCreditPaymentBalance()
+        {
+            var order = new Order
+            {
+                TotalAmount = 300m,
+                AppliedCreditAmount = 220m,
+                AmountPaid = 0m,
+                InvoiceStatus = InvoiceStatus.PartiallyPaid
+            };
+
+            var settlement = InvoicePdfService.GetSettlement(order);
+
+            Assert.Equal(300m, settlement.TotalPayableAmount);
+            Assert.Equal(220m, settlement.CreditApplied);
+            Assert.Equal(0m, settlement.PaymentReceived);
+            Assert.Equal(80m, settlement.BalanceDue);
+        }
+
+        [Fact]
+        public void ShouldShowUpiQr_UsesOutstandingOrderBalance_WhenPaymentRecordIsPaid()
+        {
+            var invoice = new Invoice
+            {
+                Status = InvoiceStatus.Paid
+            };
+            var order = new Order
+            {
+                TotalAmount = 300m,
+                AmountPaid = 0m,
+                AppliedCreditAmount = 220m,
+                InvoiceStatus = InvoiceStatus.PartiallyPaid
+            };
+
+            Assert.True(InvoicePdfService.ShouldShowUpiQr(invoice, order));
+            Assert.Equal(80m, InvoicePdfService.GetSettlement(order).BalanceDue);
+        }
+
+        [Fact]
         public void ShouldShowUpiQr_Returns_False_For_Fully_Paid_Invoice()
         {
             var invoice = new Invoice
@@ -380,6 +418,8 @@ namespace SmartSofto.Commerce.Infrastructure.Tests
                 BusinessName = businessName,
                 Gstin = "06DBRPS5510N1ZZ",
                 Address = "HOUSE NO 3, MOHYAL COLONY, DPS Gurgaon Infant Wing, Sector 40, Gurugram, Haryana, 122001",
+                State = "Haryana",
+                GstStateCode = "06",
                 AccountName = "Standard Paneer Gurugram",
                 BankName = "IndusInd",
                 AccountNumber = "252010000009",

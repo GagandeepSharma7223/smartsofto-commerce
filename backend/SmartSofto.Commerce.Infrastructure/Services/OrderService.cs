@@ -394,8 +394,10 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             await ValidateAvailableCreditAsync(tenantId, client.Id, request.ApplyCreditAmount, pricing.Total);
 
             var shippingAddress = await ResolveShippingAddressAsync(tenantId, client, request);
+            var sellerProfile = await ResolveSellerProfileAsync(tenantId);
             var businessOrderDate = ResolveBusinessOrderDate(request.OrderDate, request.Notes, allowBackdating);
             var orderStatus = ResolveRequestedOrderStatus(request.InitialOrderStatus, allowBackdating);
+            var orderItem = CreateOrderItemSnapshot(line, sellerProfile.State, shippingAddress.State, client.TenantId);
 
             var order = new Order
             {
@@ -423,14 +425,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                 ShippingCountry = shippingAddress.Country,
                 Items = new List<OrderItem>
                 {
-                    new OrderItem
-                    {
-                        ProductId = line.ProductId,
-                        Quantity = line.Quantity,
-                        UnitPrice = line.UnitPrice,
-                        DiscountAmount = line.DiscountAmount,
-                        TenantId = client.TenantId
-                    }
+                    orderItem
                 }
             };
 
@@ -465,6 +460,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     CreatedUtc = DateTime.UtcNow,
                     BuyerBusinessName = SnapshotBuyerBusinessName(client),
                     BuyerGstin = SnapshotBuyerGstin(client),
+                    SellerProfileId = sellerProfile.Id,
                     TenantId = order.TenantId
                 };
                 _context.Invoices.Add(invoice);
@@ -715,18 +711,13 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var orderItems = pricing.Lines.Select(line => new OrderItem
-                {
-                    ProductId = line.ProductId,
-                    Quantity = line.Quantity,
-                    UnitPrice = line.UnitPrice,
-                    DiscountAmount = line.DiscountAmount,
-                    TenantId = client.TenantId
-                }).ToList();
-
                 var firstLine = pricing.Lines.First();
 
                 var shippingAddress = await ResolveShippingAddressAsync(tenantId, client, request);
+                var sellerProfile = await ResolveSellerProfileAsync(tenantId);
+                var orderItems = pricing.Lines
+                    .Select(line => CreateOrderItemSnapshot(line, sellerProfile.State, shippingAddress.State, client.TenantId))
+                    .ToList();
 
                 var order = new Order
                 {
@@ -788,6 +779,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     CreatedUtc = DateTime.UtcNow,
                     BuyerBusinessName = SnapshotBuyerBusinessName(client),
                     BuyerGstin = SnapshotBuyerGstin(client),
+                    SellerProfileId = sellerProfile.Id,
                     TenantId = order.TenantId
                 };
                 _context.Invoices.Add(invoice);
@@ -849,6 +841,80 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             }
 
             return requestedOrderStatus.Value;
+        }
+
+        private async Task<SellerProfile> ResolveSellerProfileAsync(int tenantId)
+        {
+            var sellerProfile = await _context.SellerProfiles
+                .AsNoTracking()
+                .Where(profile => profile.TenantId == tenantId)
+                .OrderBy(profile => profile.Id)
+                .FirstOrDefaultAsync();
+
+            if (sellerProfile == null || string.IsNullOrWhiteSpace(sellerProfile.State) || string.IsNullOrWhiteSpace(sellerProfile.GstStateCode))
+            {
+                throw new InvalidOperationException("Seller GST state configuration is required before creating an order.");
+            }
+
+            return sellerProfile;
+        }
+
+        internal static OrderItem CreateOrderItemSnapshot(PricingLineResult line, string sellerState, string shippingState, int tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(sellerState) || string.IsNullOrWhiteSpace(shippingState))
+            {
+                throw new InvalidOperationException("Seller state and shipping state are required for GST jurisdiction.");
+            }
+
+            var lineTotal = RoundMoney(line.LineNet);
+            var gstRate = line.GstRate;
+            var taxableAmount = lineTotal;
+            var cgstAmount = 0m;
+            var sgstAmount = 0m;
+            var igstAmount = 0m;
+
+            if (gstRate > 0)
+            {
+                taxableAmount = RoundMoney(lineTotal / (1m + (gstRate / 100m)));
+                var totalGst = lineTotal - taxableAmount;
+                var isIntraState = string.Equals(NormalizeState(sellerState), NormalizeState(shippingState), StringComparison.Ordinal);
+
+                if (isIntraState)
+                {
+                    cgstAmount = RoundMoney(totalGst / 2m);
+                    sgstAmount = totalGst - cgstAmount;
+                }
+                else
+                {
+                    igstAmount = totalGst;
+                }
+            }
+
+            return new OrderItem
+            {
+                ProductId = line.ProductId,
+                Quantity = line.Quantity,
+                UnitPrice = line.UnitPrice,
+                DiscountAmount = line.DiscountAmount,
+                HsnCode = string.IsNullOrWhiteSpace(line.HsnCode) ? null : line.HsnCode.Trim(),
+                GstRate = gstRate,
+                TaxableAmount = taxableAmount,
+                CgstAmount = cgstAmount,
+                SgstAmount = sgstAmount,
+                IgstAmount = igstAmount,
+                LineTotal = lineTotal,
+                TenantId = tenantId
+            };
+        }
+
+        private static string NormalizeState(string state)
+        {
+            return string.Join(' ', state.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).ToUpperInvariant();
+        }
+
+        private static decimal RoundMoney(decimal value)
+        {
+            return Math.Round(value, 2, MidpointRounding.AwayFromZero);
         }
 
         private async Task ApplyInitialPaymentAsync(Order order, MultiOrderRequest request, bool isAdmin)

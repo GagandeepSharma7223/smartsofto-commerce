@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -83,7 +84,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             };
         }
 
-        private static IReadOnlyList<InvoicePdfLine> BuildRows(Order order)
+        internal static IReadOnlyList<InvoicePdfLine> BuildRows(Order order)
         {
             if (order.Items.Count > 0)
             {
@@ -95,12 +96,16 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                         var discount = item.DiscountAmount ?? 0m;
                         return new InvoicePdfLine(
                             item.Product?.Name ?? $"Product #{item.ProductId}",
-                            item.Product?.HsnCode,
-                            item.Product?.GstRate ?? 0m,
+                            item.HsnCode,
+                            item.GstRate,
+                            item.TaxableAmount,
+                            item.CgstAmount,
+                            item.SgstAmount,
+                            item.IgstAmount,
                             item.Quantity,
                             item.Product?.Unit.ToString(),
                             item.UnitPrice,
-                            Math.Max(gross - discount, 0m));
+                            item.LineTotal > 0 ? item.LineTotal : Math.Max(gross - discount, 0m));
                     })
                     .ToList();
             }
@@ -109,8 +114,12 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             {
                 new InvoicePdfLine(
                     order.Product?.Name ?? order.ProductName ?? $"Product #{order.ProductId}",
-                    order.Product?.HsnCode,
-                    order.Product?.GstRate ?? 0m,
+                    null,
+                    0m,
+                    0m,
+                    0m,
+                    0m,
+                    0m,
                     order.Quantity,
                     order.Product?.Unit.ToString(),
                     order.UnitPrice,
@@ -149,26 +158,10 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             container.PaddingTop(8).Column(column =>
             {
                 column.Spacing(8);
-                column.Item().Row(row =>
-                {
-                    row.RelativeItem().Element(section => ComposeSellerBlock(section, sellerProfile));
-                    row.ConstantItem(8);
-                    row.RelativeItem().Element(section => ComposeBuyerBlock(section, invoice, order));
-                });
+                column.Item().Element(section => ComposeBuyerBlock(section, invoice, order));
 
                 column.Item().Element(section => ComposeItemsTable(section, rows));
                 column.Item().ExtendVertical().AlignBottom().Element(section => ComposeInvoiceBottomBlock(section, invoice, order, sellerProfile, rows));
-            });
-        }
-
-        private static void ComposeSellerBlock(IContainer container, SellerProfile sellerProfile)
-        {
-            container.Border(1).BorderColor(BorderColor).Padding(8).Column(column =>
-            {
-                column.Item().Text("Seller").FontSize(8).Bold().FontColor(BrandGreen);
-                column.Item().Text(sellerProfile.BusinessName).FontSize(11).Bold();
-                ComposeWrappedText(column, sellerProfile.Address, 9);
-                column.Item().Text($"GSTIN: {FormatOptional(sellerProfile.Gstin)}");
             });
         }
 
@@ -211,6 +204,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
         {
             var hasGstApplicableLines = HasGstApplicableLines(rows);
             var hasHsnLines = HasHsnLines(rows);
+            var hasIgstLines = HasIgstLines(rows);
             container.Border(1).BorderColor(BorderColor).Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -229,7 +223,10 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                         columns.ConstantColumn(54);
                         columns.ConstantColumn(40);
                         columns.ConstantColumn(40);
-                        columns.ConstantColumn(40);
+                        if (hasIgstLines)
+                        {
+                            columns.ConstantColumn(40);
+                        }
                     }
                     columns.ConstantColumn(58);
                 });
@@ -250,7 +247,10 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                         HeaderCell(header.Cell(), "Taxable");
                         HeaderCell(header.Cell(), "CGST");
                         HeaderCell(header.Cell(), "SGST");
-                        HeaderCell(header.Cell(), "IGST");
+                        if (hasIgstLines)
+                        {
+                            HeaderCell(header.Cell(), "IGST");
+                        }
                     }
                     HeaderCell(header.Cell(), "Total");
                 });
@@ -271,17 +271,23 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     {
                         if (line.GstRate > 0)
                         {
-                            BodyCell(table.Cell(), "-");
-                            BodyCell(table.Cell(), "-");
-                            BodyCell(table.Cell(), "-");
-                            BodyCell(table.Cell(), "-");
+                            BodyCell(table.Cell(), FormatMoney(line.TaxableAmount));
+                            BodyCell(table.Cell(), FormatMoney(line.CgstAmount));
+                            BodyCell(table.Cell(), FormatMoney(line.SgstAmount));
+                            if (hasIgstLines)
+                            {
+                                BodyCell(table.Cell(), FormatMoney(line.IgstAmount));
+                            }
                         }
                         else
                         {
                             BodyCell(table.Cell(), "Nil");
-                            BodyCell(table.Cell(), "0");
-                            BodyCell(table.Cell(), "0");
-                            BodyCell(table.Cell(), "0");
+                            BodyCell(table.Cell(), FormatMoney(0m));
+                            BodyCell(table.Cell(), FormatMoney(0m));
+                            if (hasIgstLines)
+                            {
+                                BodyCell(table.Cell(), FormatMoney(0m));
+                            }
                         }
                     }
                     BodyCell(table.Cell(), FormatMoney(line.Total));
@@ -291,6 +297,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
 
         private static void ComposePaymentFooterBlock(IContainer container, Invoice invoice, Order order, SellerProfile sellerProfile)
         {
+            var settlement = GetSettlement(order);
             container.PaddingTop(8).Border(1).BorderColor(BorderColor).Padding(8).Column(column =>
             {
                 column.Item().Row(row =>
@@ -298,13 +305,21 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     row.RelativeItem().Column(left =>
                     {
                         left.Item().Text("Payment Details").FontSize(10).Bold().FontColor(BrandGreen);
-                        left.Item().Text($"Payment Status: {invoice.Status}");
-                        left.Item().Text($"Payment Method: {invoice.PaymentMethod}");
-                        if (!string.IsNullOrWhiteSpace(invoice.ReferenceNumber))
+                        left.Item().Text($"Payment Status: {order.InvoiceStatus}");
+                        if (settlement.CreditApplied > 0)
                         {
-                            left.Item().Text($"Reference: {invoice.ReferenceNumber}");
+                            left.Item().Text($"Credit Applied: {FormatRupees(settlement.CreditApplied)}");
                         }
-                        left.Item().Text($"Recorded Amount: {FormatMoney(invoice.Amount)}");
+                        if (settlement.PaymentReceived > 0)
+                        {
+                            left.Item().Text($"Payment Received: {FormatRupees(settlement.PaymentReceived)}");
+                            left.Item().Text($"Payment Method: {invoice.PaymentMethod}");
+                            if (!string.IsNullOrWhiteSpace(invoice.ReferenceNumber))
+                            {
+                                left.Item().Text($"Reference: {invoice.ReferenceNumber}");
+                            }
+                        }
+                        left.Item().Text($"Balance Due: {FormatRupees(settlement.BalanceDue)}");
 
                         left.Item().PaddingTop(6).Text("Bank Details").FontSize(9).Bold().FontColor(BrandGreen);
                         left.Item().Text($"Account Name: {FormatOptional(sellerProfile.AccountName)}");
@@ -320,6 +335,7 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                         {
                             right.Item().AlignCenter().Text("For UPI Payment").FontSize(8).SemiBold().FontColor(BrandGreen);
                             right.Item().PaddingTop(4).Width(96).Height(96).AlignCenter().Image(upiQr).FitArea();
+                            right.Item().PaddingTop(4).AlignCenter().Text($"Amount Due: {FormatRupees(settlement.BalanceDue)}").FontSize(8).Bold().FontColor(BrandGreen);
                         });
                     }
                 });
@@ -339,25 +355,30 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             container.Column(column =>
             {
                 column.Spacing(0);
-                column.Item().Element(section => ComposeTotalsBlock(section, order, HasGstApplicableLines(rows)));
+                column.Item().Element(section => ComposeTotalsBlock(section, order, rows));
                 column.Item().Element(section => ComposePaymentFooterBlock(section, invoice, order, sellerProfile));
             });
         }
 
-        private static void ComposeTotalsBlock(IContainer container, Order order, bool hasGstApplicableLines)
+        private static void ComposeTotalsBlock(IContainer container, Order order, IReadOnlyList<InvoicePdfLine> rows)
         {
+            var hasGstApplicableLines = HasGstApplicableLines(rows);
+            var hasIgstLines = HasIgstLines(rows);
             container.Border(1).BorderColor(BorderColor).Padding(8).Column(column =>
             {
                 column.Item().Text("Tax Summary").FontSize(10).Bold().FontColor(BrandGreen);
                 if (hasGstApplicableLines)
                 {
-                    TotalRow(column, "Total Amount Before Tax", "-");
-                    TotalRow(column, "CGST", "-");
-                    TotalRow(column, "SGST", "-");
-                    TotalRow(column, "IGST", "-");
+                    TotalRow(column, "Total Amount Before Tax", FormatMoney(rows.Sum(row => row.TaxableAmount)));
+                    TotalRow(column, "CGST", FormatMoney(rows.Sum(row => row.CgstAmount)));
+                    TotalRow(column, "SGST", FormatMoney(rows.Sum(row => row.SgstAmount)));
+                    if (hasIgstLines)
+                    {
+                        TotalRow(column, "IGST", FormatMoney(rows.Sum(row => row.IgstAmount)));
+                    }
                     column.Item().PaddingTop(4).LineHorizontal(1).LineColor(Colors.Grey.Lighten1);
                 }
-                TotalRow(column, "Total Payable Amount", FormatMoney(order.TotalAmount), true);
+                TotalRow(column, "Total Payable Amount", FormatRupees(order.TotalAmount), true);
             });
         }
 
@@ -434,8 +455,17 @@ namespace SmartSofto.Commerce.Infrastructure.Services
 
         internal static bool ShouldShowUpiQr(Invoice invoice, Order order)
         {
-            var balance = order.TotalAmount - order.AmountPaid - order.AppliedCreditAmount;
-            return invoice.Status != InvoiceStatus.Paid && order.InvoiceStatus != InvoiceStatus.Paid && balance > 0;
+            var settlement = GetSettlement(order);
+            return order.InvoiceStatus != InvoiceStatus.Paid && settlement.BalanceDue > 0;
+        }
+
+        internal static InvoiceSettlement GetSettlement(Order order)
+        {
+            return new InvoiceSettlement(
+                order.TotalAmount,
+                order.AppliedCreditAmount,
+                order.AmountPaid,
+                Math.Max(order.TotalAmount - order.AppliedCreditAmount - order.AmountPaid, 0m));
         }
 
         private static bool HasGstApplicableLines(IReadOnlyList<InvoicePdfLine> rows)
@@ -446,6 +476,11 @@ namespace SmartSofto.Commerce.Infrastructure.Services
         private static bool HasHsnLines(IReadOnlyList<InvoicePdfLine> rows)
         {
             return rows.Any(row => !string.IsNullOrWhiteSpace(row.HsnCode));
+        }
+
+        private static bool HasIgstLines(IReadOnlyList<InvoicePdfLine> rows)
+        {
+            return rows.Any(row => row.IgstAmount > 0);
         }
 
         private static float GetDescriptionColumnWidth(bool hasGstApplicableLines, bool hasHsnLines)
@@ -492,7 +527,12 @@ namespace SmartSofto.Commerce.Infrastructure.Services
 
         private static string FormatMoney(decimal value)
         {
-            return $"INR {value:N2}";
+            return value.ToString("N2", CultureInfo.GetCultureInfo("en-IN"));
+        }
+
+        private static string FormatRupees(decimal value)
+        {
+            return $"₹{FormatMoney(value)}";
         }
 
         private static string FormatQuantity(decimal value)
@@ -512,13 +552,23 @@ namespace SmartSofto.Commerce.Infrastructure.Services
             return string.IsNullOrWhiteSpace(value) ? fallback : value;
         }
 
-        private sealed record InvoicePdfLine(
+        internal sealed record InvoicePdfLine(
             string Description,
             string? HsnCode,
             decimal GstRate,
+            decimal TaxableAmount,
+            decimal CgstAmount,
+            decimal SgstAmount,
+            decimal IgstAmount,
             decimal Quantity,
             string? Unit,
             decimal UnitPrice,
             decimal Total);
+
+        internal sealed record InvoiceSettlement(
+            decimal TotalPayableAmount,
+            decimal CreditApplied,
+            decimal PaymentReceived,
+            decimal BalanceDue);
     }
 }

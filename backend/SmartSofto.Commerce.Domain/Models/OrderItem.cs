@@ -30,8 +30,26 @@ namespace SmartSofto.Commerce.Domain.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal? DiscountAmount { get; set; }
 
-        [NotMapped]
-        public decimal LineTotal => UnitPrice * Quantity;
+        [MaxLength(20)]
+        public string? HsnCode { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal GstRate { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal TaxableAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal CgstAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal SgstAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal IgstAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal LineTotal { get; set; }
 
         public int TenantId { get; set; } = 1;
     }

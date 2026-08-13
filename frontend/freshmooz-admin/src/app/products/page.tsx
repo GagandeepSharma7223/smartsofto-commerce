@@ -47,6 +47,23 @@ export default function AdminProductsPage() {
   const [sort, setSort] = useState<'name_asc' | 'name_desc' | 'qty_desc' | 'qty_asc'>('name_asc')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<10 | 20 | 50>(20)
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    try {
+      const message = sessionStorage.getItem('flash')
+      if (message) {
+        setToast(message)
+        sessionStorage.removeItem('flash')
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 5000)
+    return () => clearTimeout(timer)
+  }, [toast])
 
   useEffect(() => {
     const load = async () => {
@@ -101,6 +118,11 @@ export default function AdminProductsPage() {
 
   return (
     <div className="landing">
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm rounded-xl bg-[#6FAF3D] px-4 py-2 text-white shadow-lg">
+          <div className="font-medium">{toast}</div>
+        </div>
+      )}
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold">Products</h1>

@@ -70,7 +70,9 @@ namespace SmartSofto.Commerce.Infrastructure.Services
                     DiscountAmount = discount,
                     LineGross = gross,
                     LineNet = net,
-                    AvailableQuantity = product.Quantity
+                    AvailableQuantity = product.Quantity,
+                    HsnCode = product.HsnCode,
+                    GstRate = product.GstRate
                 });
 
                 result.TotalItems += line.Quantity;

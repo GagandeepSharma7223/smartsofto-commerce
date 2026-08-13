@@ -195,6 +195,8 @@ static async Task SeedIdentityAsync(IServiceProvider services)
             BusinessName = "Standard Paneer Gurugram",
             Gstin = "06DBRPS5510N1ZZ",
             Address = "HOUSE NO 3, MOHYAL COLONY, DPS Gurgaon Infant Wing, Sector 40, Gurugram, Haryana, 122001",
+            State = "Haryana",
+            GstStateCode = "06",
             AccountName = "Standard Paneer Gurugram",
             BankName = "IndusInd",
             AccountNumber = "252010000009",

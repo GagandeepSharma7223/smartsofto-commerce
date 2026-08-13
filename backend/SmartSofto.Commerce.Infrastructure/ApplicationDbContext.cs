@@ -134,6 +134,13 @@ namespace SmartSofto.Commerce.Infrastructure
                 entity.Property(e => e.Quantity).HasPrecision(18, 3);
                 entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
                 entity.Property(e => e.DiscountAmount).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.HsnCode).HasMaxLength(20);
+                entity.Property(e => e.GstRate).HasPrecision(5, 2).HasDefaultValue(0m);
+                entity.Property(e => e.TaxableAmount).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.CgstAmount).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.SgstAmount).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.IgstAmount).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.LineTotal).HasPrecision(18, 2).HasDefaultValue(0m);
                 entity.Property(e => e.TenantId).HasDefaultValue(1);
             });
 
@@ -227,6 +234,8 @@ namespace SmartSofto.Commerce.Infrastructure
                 entity.Property(e => e.BusinessName).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Gstin).IsRequired().HasMaxLength(20);
                 entity.Property(e => e.Address).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.State).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.GstStateCode).IsRequired().HasMaxLength(2);
                 entity.Property(e => e.AccountName).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.BankName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.AccountNumber).IsRequired().HasMaxLength(50);

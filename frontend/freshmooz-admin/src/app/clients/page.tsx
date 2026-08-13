@@ -1,7 +1,8 @@
 "use client"
 import LoadingState from '@/components/LoadingState'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import {
   apiAdminClients,
@@ -130,6 +131,42 @@ export default function ClientsPage() {
   const [ledgerClient, setLedgerClient] = useState<AdminClient | null>(null)
   const [ledgerRows, setLedgerRows] = useState<ClientAccountTransaction[]>([])
   const [ledgerLoading, setLedgerLoading] = useState(false)
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null)
+  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  const positionMenu = useCallback(() => {
+    if (!menuAnchor) return
+
+    const anchorRect = menuAnchor.getBoundingClientRect()
+    const menuWidth = menuRef.current?.offsetWidth || 144
+    const menuHeight = menuRef.current?.offsetHeight || 120
+    const gap = 6
+    const viewportPadding = 8
+    const roomBelow = window.innerHeight - anchorRect.bottom
+    const openUpward = roomBelow < menuHeight + gap && anchorRect.top >= menuHeight + gap
+
+    setMenuPosition({
+      top: openUpward ? anchorRect.top - menuHeight - gap : anchorRect.bottom + gap,
+      left: Math.max(viewportPadding, Math.min(anchorRect.right - menuWidth, window.innerWidth - menuWidth - viewportPadding))
+    })
+  }, [menuAnchor])
+
+  useLayoutEffect(() => {
+    if (openMenuId !== null) positionMenu()
+  }, [openMenuId, positionMenu])
+
+  useEffect(() => {
+    if (openMenuId === null) return
+
+    window.addEventListener('resize', positionMenu)
+    window.addEventListener('scroll', positionMenu, true)
+    return () => {
+      window.removeEventListener('resize', positionMenu)
+      window.removeEventListener('scroll', positionMenu, true)
+    }
+  }, [openMenuId, positionMenu])
 
   const load = useCallback(async () => {
     setError(null)
@@ -150,6 +187,27 @@ export default function ClientsPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (openMenuId === null) return
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Element | null
+      if (!target?.closest(`[data-client-menu="${openMenuId}"]`)) {
+        setOpenMenuId(null)
+      }
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenMenuId(null)
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [openMenuId])
 
   const normalizedPhone = normalizePhone(form.phoneNumber)
 
@@ -176,6 +234,8 @@ export default function ClientsPage() {
     const q = query.trim().toLowerCase()
     return list.filter(c =>
       String(c.name || '').toLowerCase().includes(q) ||
+      String(c.referenceName || '').toLowerCase().includes(q) ||
+      String(c.companyName || '').toLowerCase().includes(q) ||
       String(c.email || '').toLowerCase().includes(q) ||
       String(c.phoneNumber || '').toLowerCase().includes(q)
     )
@@ -428,20 +488,22 @@ export default function ClientsPage() {
   return (
     <Shell title="Clients">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+        <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+          <label className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-slate-700">
+            <input className="h-4 w-4 rounded border-slate-300 accent-[#6FAF3D]" type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show inactive
           </label>
           <input
-            className="w-full rounded-md border px-3 py-2 sm:w-64"
-            placeholder="Search by name, email, phone"
+            type="search"
+            aria-label="Search clients"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none placeholder:text-slate-400 focus:border-[#6FAF3D] focus:ring-2 focus:ring-[#6FAF3D]/20 sm:max-w-md"
+            placeholder="Search by name, company, email, or phone"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
         <button
-          className="bg-[#6FAF3D] hover:bg-[#5F9B34] text-white px-4 py-2 rounded-md"
+          className="shrink-0 rounded-md bg-[#6FAF3D] px-4 py-2 text-sm font-medium text-white hover:bg-[#5F9B34] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6FAF3D] focus-visible:ring-offset-2"
           onClick={openCreate}
         >
           Add Client
@@ -455,71 +517,94 @@ export default function ClientsPage() {
       ) : filtered.length === 0 ? (
         <div className="text-slate-600">No clients found.</div>
       ) : (
-        <div className="overflow-auto border rounded-xl bg-white">
+        <div className="overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-slate-700">
               <tr>
-                <th className="text-left px-3 py-2">Client</th>
-                <th className="text-left px-3 py-2">Contact</th>
-                <th className="text-left px-3 py-2">Type</th>
-                <th className="text-right px-3 py-2">Credit</th>
-                <th className="text-left px-3 py-2">Status</th>
-                <th className="text-left px-3 py-2">Actions</th>
+                <th className="px-4 py-2.5 text-left font-semibold">Client</th>
+                <th className="px-4 py-2.5 text-left font-semibold">Contact</th>
+                <th className="px-4 py-2.5 text-left font-semibold">Company / Type</th>
+                <th className="px-4 py-2.5 text-right font-semibold">Credit</th>
+                <th className="px-4 py-2.5 text-left font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((c) => (
-                <tr key={c.id} className="border-t">
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{c.name}</div>
-                    <div className="text-xs text-slate-500">Ref: {c.referenceName || '-'}</div>
+                <tr key={c.id} className={`border-t border-slate-200 ${c.isActive ? 'bg-white' : 'bg-slate-50/80 text-slate-600'}`}>
+                  <td className="px-4 py-3 align-top">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-semibold ${c.isActive ? 'text-slate-900' : 'text-slate-700'}`}>{c.name}</span>
+                      {!c.isActive && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600">Inactive</span>}
+                    </div>
+                    {c.referenceName && <div className="mt-0.5 text-xs text-slate-500">Ref: {c.referenceName}</div>}
                   </td>
-                  <td className="px-3 py-2">
-                    <div>{c.email || '-'}</div>
-                    <div className="text-xs text-slate-500">{c.phoneNumber || '-'}</div>
+                  <td className="px-4 py-3 align-top">
+                    <div className="text-slate-800">{c.email || '-'}</div>
+                    {c.phoneNumber && <div className="mt-0.5 text-xs text-slate-500">{c.phoneNumber}</div>}
                   </td>
-                  <td className="px-3 py-2">{c.clientType || 'Regular'}</td>
-                  <td className="px-3 py-2 text-right font-medium">{formatInr(creditBalances[c.id] || 0)}</td>
-                  <td className="px-3 py-2">
-                    <Badge tone={c.isActive ? 'green' : 'gray'}>
-                      {c.isActive ? 'Active' : 'Archived'}
-                    </Badge>
+                  <td className="px-4 py-3 align-top">
+                    <div className="text-slate-800">{c.companyName || '-'}</div>
+                    <div className="mt-0.5 text-xs text-slate-500">{c.clientType || 'Regular'}</div>
                   </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-3">
+                  <td className={`px-4 py-3 text-right align-top font-semibold ${(creditBalances[c.id] || 0) > 0 ? 'text-green-700' : 'text-slate-500'}`}>
+                    {formatInr(creditBalances[c.id] || 0)}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <div className="flex items-center gap-2">
                       <button
-                        className="text-[#2B7CBF] text-sm"
+                        type="button"
+                        className="inline-flex h-8 items-center justify-center rounded-md bg-[#6FAF3D] px-3 text-xs font-semibold text-white hover:bg-[#5F9B34] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6FAF3D] focus-visible:ring-offset-1"
                         onClick={() => openEdit(c)}
                       >
                         Edit
                       </button>
-                      <button
-                        className="text-sm text-[#2B7CBF]"
-                        onClick={() => openAdvanceModal(c)}
-                      >
-                        Advance
-                      </button>
-                      <button
-                        className="text-sm text-[#2B7CBF]"
-                        onClick={() => openLedgerModal(c)}
-                      >
-                        History
-                      </button>
-                      {c.isActive ? (
+                      <div className="relative" data-client-menu={c.id}>
                         <button
-                          className="text-sm text-red-600"
-                          onClick={() => archiveClient(c)}
+                          type="button"
+                          aria-haspopup="menu"
+                          aria-expanded={openMenuId === c.id}
+                          aria-controls={`client-actions-${c.id}`}
+                          className="inline-flex h-8 items-center justify-center rounded-md bg-slate-100 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1"
+                          onClick={(event) => {
+                            if (openMenuId === c.id) {
+                              setOpenMenuId(null)
+                              setMenuAnchor(null)
+                              return
+                            }
+                            setMenuAnchor(event.currentTarget)
+                            setOpenMenuId(c.id)
+                          }}
                         >
-                          Archive
+                          More
                         </button>
-                      ) : (
-                        <button
-                          className="text-sm text-[#2B7CBF]"
-                          onClick={() => restoreClient(c)}
+                        {openMenuId === c.id && createPortal(
+                        <div
+                          ref={menuRef}
+                          id={`client-actions-${c.id}`}
+                          role="menu"
+                          data-client-menu={c.id}
+                          className="fixed z-50 w-36 rounded-md border border-slate-200 bg-white p-1.5 text-xs shadow-lg"
+                          style={{ top: menuPosition.top, left: menuPosition.left }}
                         >
-                          Restore
-                        </button>
-                      )}
+                          <button type="button" role="menuitem" className="block w-full rounded px-2.5 py-2 text-left font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none" onClick={() => { setOpenMenuId(null); openAdvanceModal(c) }}>
+                            Advance
+                          </button>
+                          <button type="button" role="menuitem" className="block w-full rounded px-2.5 py-2 text-left font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none" onClick={() => { setOpenMenuId(null); openLedgerModal(c) }}>
+                            History
+                          </button>
+                          {c.isActive ? (
+                            <button type="button" role="menuitem" className="block w-full rounded px-2.5 py-2 text-left font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none" onClick={() => { setOpenMenuId(null); archiveClient(c) }}>
+                              Archive
+                            </button>
+                          ) : (
+                            <button type="button" role="menuitem" className="block w-full rounded px-2.5 py-2 text-left font-medium text-[#2B7CBF] hover:bg-slate-100 focus:bg-slate-100 focus:outline-none" onClick={() => { setOpenMenuId(null); restoreClient(c) }}>
+                              Restore
+                            </button>
+                          )}
+                        </div>,
+                        document.body
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -986,18 +1071,6 @@ function normalizePhone(value: string | null | undefined) {
 function normalizeName(value: string | null | undefined) {
   return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
-
-function Badge({ children, tone = 'gray' }: { children: React.ReactNode; tone?: 'gray' | 'green' | 'amber' }) {
-  const colors =
-    tone === 'green'
-      ? 'bg-green-100 text-green-800'
-      : tone === 'amber'
-      ? 'bg-amber-100 text-amber-800'
-      : 'bg-slate-100 text-slate-700'
-  return <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${colors}`}>{children}</span>
-}
-
-
 
 function creditTypeLabel(type: number) {
   switch (type) {

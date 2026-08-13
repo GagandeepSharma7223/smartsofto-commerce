@@ -18,6 +18,8 @@ namespace SmartSofto.Commerce.Application.DTOs
         public decimal LineGross { get; set; }
         public decimal LineNet { get; set; }
         public decimal AvailableQuantity { get; set; }
+        public string? HsnCode { get; set; }
+        public decimal GstRate { get; set; }
     }
 
     public class OrderPricingResult
